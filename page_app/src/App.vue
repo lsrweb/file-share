@@ -1,56 +1,30 @@
 <template>
   <div class="body">
     <div class="container">
-      <div :style="serverStatus === 'start' ? '' : 'display:none'">
+      <div v-if="serverStatus === 'start'">
         <el-space size="large" direction="vertical">
-          <el-card class="box-card">
-            <template #header>
-              <div class="card-header">
-                <el-row class="row-bg" justify="space-between">
-                  <el-col :span="6">正在分享...</el-col>
-                  <el-col :span="6">
-                    <el-button type="danger" size="small" @click="stopServer" plain>取消分享</el-button>
-                  </el-col>
-                </el-row>
-              </div>
-            </template>
-            <el-row class="row-bg">
-              <el-col :span="12">分享链接：{{ settingForm.url }}</el-col>
-              <el-col :span="4">
-                <el-popover placement="left" :width="100" trigger="hover">
-                  <template #reference>
-                    <el-button type="default" size="mini" icon="el-icon-document-copy"
-                               title="复制链接到剪切板" @click="handleClipboard(settingForm.url, $event)">复制链接
-                    </el-button>
-                  </template>
-                  <qrcode-vue :value="settingForm.url"></qrcode-vue>
-                </el-popover>
-              </el-col>
-              <el-col :span="4">
-                <el-button type="default" size="mini"
-                           icon="el-icon-sort" title="切换ip协议" @click="changeIpFamily()">协议：{{ ipFamily }}
-                </el-button>
-              </el-col>
-              <el-col :span="4">
-                <el-button v-if="netInterfaceNames.length > 1" type="default" size="mini"
-                           icon="el-icon-sort" title="切换网卡" @click="changeNetInterface()">网卡：{{ currentInterfaceName }}
-                </el-button>
-              </el-col>
-            </el-row>
-          </el-card>
-
+          <Head />
           <el-card class="box-card">
             <template #header>
               <el-dialog v-model="dialogFormVisible" title="分享一段文本">
-                <el-input type="textarea" :rows="2" :autosize="{ minRows: 2, maxRows: 4 }"
-                          placeholder="请输入内容" v-model="form.text">
+                <el-input
+                  type="textarea"
+                  :rows="2"
+                  :autosize="{ minRows: 2, maxRows: 4 }"
+                  placeholder="请输入内容"
+                  v-model="form.text"
+                >
                 </el-input>
                 <template #footer>
                   <el-button type="primary" @click="formSubmit">提交</el-button>
                 </template>
               </el-dialog>
 
-              <el-dialog v-model="settingFormVisible" title="设置" style="width: 70%;">
+              <el-dialog
+                v-model="settingFormVisible"
+                title="设置"
+                style="width: 70%;"
+              >
                 <el-row class="row-bg">
                   <el-col :span="24">
                     <el-form ref="form" :model="settingForm" label-width="80px">
@@ -64,14 +38,22 @@
                         <el-switch v-model="settingForm.authEnable">
                         </el-switch>
                       </el-form-item>
-                      <el-form-item v-if="settingForm.authEnable" label="校验密码">
-                        <el-input v-model="settingForm.password" show-password></el-input>
+                      <el-form-item
+                        v-if="settingForm.authEnable"
+                        label="校验密码"
+                      >
+                        <el-input
+                          v-model="settingForm.password"
+                          show-password
+                        ></el-input>
                       </el-form-item>
                       <el-form-item label="启用续传">
-                        <el-switch v-model="settingForm.tusEnable">
-                        </el-switch>
+                        <el-switch v-model="settingForm.tusEnable"> </el-switch>
                       </el-form-item>
-                      <el-form-item v-if="settingForm.tusEnable" label="分片大小">
+                      <el-form-item
+                        v-if="settingForm.tusEnable"
+                        label="分片大小"
+                      >
                         <el-input v-model="settingForm.chunkSize">
                           <template #append><span>M</span></template>
                         </el-input>
@@ -80,8 +62,12 @@
                   </el-col>
                 </el-row>
                 <template #footer>
-                  <el-button type="primary" @click="updateSettingsForm">更新</el-button>
-                  <el-button type="primary" @click="closeSettingsForm">取消</el-button>
+                  <el-button type="primary" @click="updateSettingsForm"
+                    >更新</el-button
+                  >
+                  <el-button type="primary" @click="closeSettingsForm"
+                    >取消</el-button
+                  >
                 </template>
               </el-dialog>
 
@@ -89,257 +75,182 @@
                 <el-row class="row-bg">
                   <el-col :span="12">分享列表</el-col>
                   <el-col :span="4">
-                    <el-button @click="dialogFormVisible = true" type="default" size="mini"
-                               icon="el-icon-message" title="分享一段文本">分享文本
+                    <el-button
+                      @click="dialogFormVisible = true"
+                      type="default"
+                      size="mini"
+                      icon="el-icon-message"
+                      title="分享一段文本"
+                      >分享文本
                     </el-button>
                   </el-col>
                   <el-col :span="4">
-                    <el-popconfirm @confirm="removeFileAll()" title="确定要清空所有文件吗？">
+                    <el-popconfirm
+                      @confirm="removeFileAll()"
+                      title="确定要清空所有文件吗？"
+                    >
                       <template #reference>
-                        <el-button type="default" size="mini" icon="el-icon-delete"
-                                   title="清空列表">清空列表
+                        <el-button
+                          type="default"
+                          size="mini"
+                          icon="el-icon-delete"
+                          title="清空列表"
+                          >清空列表
                         </el-button>
                       </template>
                     </el-popconfirm>
                   </el-col>
                   <el-col :span="4">
-                    <el-button @click="onHandlerSetting()" type="default" size="mini"
-                               icon="el-icon-setting" title="设置">设置
+                    <el-button
+                      @click="onHandlerSetting()"
+                      type="default"
+                      size="mini"
+                      icon="el-icon-setting"
+                      title="设置"
+                      >设置
                     </el-button>
                   </el-col>
                 </el-row>
               </div>
             </template>
-
-            <div class="upload-box">
-              <el-upload ref="uploadFile" accept="" drag multiple :show-file-list="false" action=""
-                         :http-request="addFiles">
-                <i class="el-icon-upload"></i>
-                <div class="el-upload__text">
-                  拖拽<b>文件</b>或<b>文件夹</b>到此处或点击<em>选择文件</em>，进行分享~
-                </div>
-              </el-upload>
-            </div>
-
-            <div v-for="file in files" :key="file" class="text item file-item">
-              <el-row class="row-bg" justify="space-between">
-                <el-col :span="5">
-                  <el-tooltip effect="light" placement="top">
-                    <template #content>{{ `由【${file.username}】分享` }}</template>
-                    <span class="username">{{ file.username }}</span>
-                  </el-tooltip>
-                </el-col>
-                <el-col :span="13">
-                  <el-tooltip v-if="file.type === 'text'" effect="light" placement="top">
-                    <template #content>{{ file.intro }}</template>
-                    <span>{{ file.name }}</span>
-                  </el-tooltip>
-                  <span v-if="['directory', 'file'].includes(file.type)">{{ file.name }}</span>
-                </el-col>
-                <el-col :span="6">
-                  <el-button v-if="file.type === 'text'" type="default" size="mini"
-                             icon="el-icon-document-copy" title="复制文本到剪切板"
-                             @click="handleClipboard(file.content, $event)"></el-button>
-                  <el-button v-if="['directory', 'file'].includes(file.type)" type="default" size="mini"
-                             icon="el-icon-search" title="打开文件所在目录" @click="openFile(file.name, $event)">
-                  </el-button>
-                  <el-button type="default" size="mini" icon="el-icon-delete"
-                             @click="() => removeFile(file)"></el-button>
-                </el-col>
-              </el-row>
-            </div>
-
-            <el-alert v-if="files.length === 0" title="无" :closable="false" type="info" center>
-            </el-alert>
+            <List />
           </el-card>
         </el-space>
       </div>
-      <div :style="serverStatus === 'start' ? 'display:none' : ''">
-        <div class="btn-box">
-          <div class="start-btn" @click="startServer">开启服务</div>
-          <div class="start-btn-shadow">
-            <span style="--i:1"></span>
-            <span style="--i:2"></span>
-            <span style="--i:3"></span>
-            <span style="--i:4"></span>
-            <span style="--i:5"></span>
-            <span style="--i:6"></span>
-            <span style="--i:7"></span>
-            <span style="--i:8"></span>
-            <span style="--i:9"></span>
-            <span style="--i:10"></span>
-          </div>
-        </div>
-      </div>
+      <start v-if="serverStatus === 'stop'"></start>
     </div>
   </div>
 </template>
 
 <script>
-import Clipboard from 'clipboard'
-import {ElMessage} from 'element-plus'
-import QrcodeVue from 'qrcode.vue'
+import { ElMessage } from "element-plus";
+import Start from "@/views/start.vue";
+import Head from "@/views/head.vue";
+import List from "@/views/list.vue";
+import store from "@/store";
+import { currentInterfaceName, netInterfaceNames } from "@/views/store";
 
 let api = window.api;
 
-let copyClipboard = (text, event) => {
-  const clipboard = new Clipboard(event.target, {
-    text: () => text
-  })
-  clipboard.on('success', () => {
-    ElMessage.success({message: '复制成功', type: 'success'});
-  })
-  clipboard.onClick(event)
-}
-
 export default {
-  name: 'App',
+  name: "App",
   data: () => {
     return {
-      serverStatus: 'stop',
       qrcode: "",
-      files: [],
-      ipFamily: 'ipv4',
+      ipFamily: "ipv4",
       netInterfaceNames: [],
       currentNetInterfaceIdx: 0,
-      currentInterfaceName: '',
+      currentInterfaceName: "",
       form: {
-        text: ''
+        text: ""
       },
       settingFormVisible: false,
-      settingForm: {
-        url: '',
-        uploadPath: '',
-        port: 5421
-      },
+
       dialogFormVisible: false,
       timer: null
+    };
+  },
+  computed: {
+    serverStatus: {
+      get() {
+        return this.$store.state.serverStatus;
+      },
+      set(value) {
+        this.$store.commit("setServerStatus", value);
+      }
+    },
+    settingForm: {
+      get() {
+        return this.$store.state.settingForm;
+      },
+      set(value) {
+        this.$store.commit("setSettingForm", value);
+      }
+    },
+    files: {
+      get() {
+        return this.$store.state.files;
+      },
+      set(value) {
+        this.$store.commit("setFiles", value);
+      }
     }
   },
   methods: {
-    onHandlerSetting: function () {
-      console.log("--onHandlerSetting--")
+    onHandlerSetting: function() {
+      console.log("--onHandlerSetting--");
       this.settingForm = api.getSetting();
       this.settingFormVisible = true;
     },
-    updateSettingsForm: function () {
-      console.log(this.settingForm)
-      api.updateSetting(this.settingForm)
-          .then(() => {
-            ElMessage.success("更新成功");
-            this.settingForm = api.getSetting();
-            this.settingFormVisible = false;
-          })
-          .catch(() => {
-            ElMessage.error("更新失败");
-            this.settingForm = api.getSetting();
-            this.settingFormVisible = false;
-          })
+    updateSettingsForm: function() {
+      console.log(this.settingForm);
+      api
+        .updateSetting(this.settingForm)
+        .then(() => {
+          ElMessage.success("更新成功");
+          this.settingForm = api.getSetting();
+          this.settingFormVisible = false;
+        })
+        .catch(() => {
+          ElMessage.error("更新失败");
+          this.settingForm = api.getSetting();
+          this.settingFormVisible = false;
+        });
     },
-    closeSettingsForm: function () {
+    closeSettingsForm: function() {
       this.settingForm = api.getSetting();
       this.settingFormVisible = false;
     },
-    formSubmit: function () {
+    formSubmit: function() {
       let text = this.form.text;
       api.addText(text, this.settingForm.ip);
       this.files = api.listFiles();
-      this.form.text = '';
+      this.form.text = "";
       this.dialogFormVisible = false;
     },
-    startServer: function () {
-      this.settingForm = api.getSetting()
-      api.startServer();
-    },
-    stopServer: function () {
-      api.stopServer()
-    },
-    addFiles: function (params) {
-      console.log("addFiles", params)
-      let file = {name: params.file.name, path: params.file.path, username: this.settingForm.ip};
-      let {success, message} = api.addFile(file);
-      if (success) {
-        this.files = api.listFiles();
-      } else {
-        ElMessage.error(message);
-      }
-    },
-    removeFileAll: function () {
+
+    removeFileAll: function() {
       this.files.forEach(f => {
-        api.removeFile(f)
-      })
-      this.files = api.listFiles();
-      ElMessage.success({message: '已清空列表', type: 'success'});
-    },
-    removeFile: function (file) {
-      let removeFiles = this.files.filter((f) => f.name === file.name);
-      console.log(removeFiles)
-      api.removeFile(removeFiles[0])
-      this.files = api.listFiles();
-    },
-    openFile: function (filename) {
-      api.openFile(filename, (err) => {
-        ElMessage.error({message: `文件打开失败 "${err}"`, type: 'error'});
-      })
-    },
-    handleClipboard: function (data, event) {
-      copyClipboard(data, event)
-    },
-    changeIpFamily: function () {
-      this.ipFamily = this.ipFamily === 'ipv4' ? 'ipv6' : 'ipv4';
-      this.currentNetInterfaceIdx = 0;
-      this.netInterfaceNames = api.getNetInterfaceNames(this.ipFamily);
-      this.currentInterfaceName = this.netInterfaceNames[0] || "";
-      this.updateIp();
-    },
-    changeNetInterface: function () {
-      if (this.currentNetInterfaceIdx === 99) {
-        this.currentNetInterfaceIdx = 0;
-      } else {
-        this.currentNetInterfaceIdx = this.currentNetInterfaceIdx + 1;
-      }
-      this.currentInterfaceName = this.netInterfaceNames[this.currentNetInterfaceIdx % this.netInterfaceNames.length];
-      this.updateIp();
-    },
-    updateIp() {
-      let ip = api.getIpAddress(this.currentNetInterfaceIdx, this.ipFamily);
-      if (this.ipFamily === 'ipv6') {
-        ip = `[${ip}]`
-      }
-      api.updateIp(ip).then(() => {
-        this.settingForm = api.getSetting()
-        ElMessage.success({message: `切换网卡为 "${this.currentInterfaceName}"`, type: 'success'});
+        api.removeFile(f);
       });
-    },
-    updatePage() {
-      this.serverStatus = api.getServerStatus();
-      this.netInterfaceNames = api.getNetInterfaceNames(this.ipFamily);
-      this.currentInterfaceName = this.netInterfaceNames[0] || "";
       this.files = api.listFiles();
-      this.settingForm = api.getSetting()
-      console.log("---settingForm--", this.settingForm)
+      ElMessage.success({ message: "已清空列表", type: "success" });
+    },
+
+    updatePage() {
+      store.commit("setServerStatus", api.getServerStatus());
+      netInterfaceNames.value = api.getNetInterfaceNames(this.ipFamily);
+      currentInterfaceName.value = netInterfaceNames.value[0] || "";
+      store.commit("setFiles", api.listFiles());
+      store.commit("setSettingForm", api.getSetting());
+      console.log("---settingForm--", this.settingForm);
     }
   },
-  mounted: function () {
-    // document.getElementsByClassName('el-upload__input')[0].webkitdirectory = true
-    // 注册事件监听
-    api.registryEventListener('server.statusChange', (event) => {
-      console.log("---服务状态变更---", event)
-      this.serverStatus = event.data.status
-    })
-    api.registryEventListener('fileDb.listChange', (event) => {
-      console.log("---文件列表变更---", event)
-      this.files = api.listFiles();
-      console.log(this.files)
-    })
-    this.updatePage()
+  mounted: function() {
+    try {
+      // document.getElementsByClassName('el-upload__input')[0].webkitdirectory = true
+      // 注册事件监听
+      api.registryEventListener("server.statusChange", event => {
+        console.log("---服务状态变更---", event);
+        this.serverStatus = event.data.status;
+      });
+      api.registryEventListener("fileDb.listChange", event => {
+        console.log("---文件列表变更---", event);
+        let files = api.listFiles();
+        store.commit("setFiles", files);
+      });
+
+      this.updatePage();
+    } catch (e) {
+      console.log(e);
+    }
   },
   beforeUnmount() {
-    clearInterval(this.timer)
-    this.timer = null
+    clearInterval(this.timer);
+    this.timer = null;
   },
-  components: {QrcodeVue}
-}
+  components: { List, Head, Start }
+};
 </script>
 
 <style>
@@ -348,9 +259,11 @@ body {
 }
 
 .body {
-  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+  font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
   background-image: linear-gradient(to top, #fbc2eb 0%, #a6c1ee 100%);
-  background-blend-mode: screen, overlay, hard-light, color-burn, color-dodge, normal;
+  background-blend-mode: screen, overlay, hard-light, color-burn, color-dodge,
+    normal;
   background-attachment: fixed;
   background-repeat: no-repeat;
   background-position: 0 100%;
@@ -369,7 +282,7 @@ body {
 .upload-box {
   display: flex;
   justify-content: center;
-  align-items: center
+  align-items: center;
 }
 
 .el-upload-dragger .el-icon-upload {
@@ -453,7 +366,7 @@ body {
   border: 2px solid #ffffff;
   border-radius: 50%;
   animation: animate 2s linear infinite;
-  animation-delay: calc(0.5s * var(--i))
+  animation-delay: calc(0.5s * var(--i));
 }
 
 .start-btn-shadow:nth-child(2) span {
