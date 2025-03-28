@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= title %>
+    </title>
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/toast.css" rel="stylesheet">
+    <link href="/css/simplemde.min.css" rel="stylesheet">
+    <link href="/css/github.min.css" rel="stylesheet">
+    <style>
+        .file-list {
+            margin-top: 20px;
+        }
+
+        .file-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .file-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .text-content {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .markdown-content {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .upload-section {
+            margin-bottom: 30px;
+        }
+
+        .settings-icon {
+            cursor: pointer;
+            font-size: 1.4rem;
+            color: #6c757d;
+        }
+
+        .timestamp {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+
+        .qrcode-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        /* 文件预览样式 */
+        .preview-container {
+            display: none;
+            margin-top: 15px;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 5px;
+        }
+
+        .preview-video {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 5px;
+        }
+
+        .preview-audio {
+            width: 100%;
+        }
+
+        .preview-text {
+            width: 100%;
+            height: 200px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            overflow: auto;
+            font-family: monospace;
+        }
+
+        .file-type-switcher {
+            margin-bottom: 15px;
+        }
+
+        /* 文本和Markdown切换 */
+        .editor-toggle {
+            margin-bottom: 10px;
+        }
+
+        .CodeMirror,
+        .CodeMirror-scroll {
+            min-height: 200px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container py-4">
+        <header class="d-flex justify-content-between align-items-center pb-3 mb-4 border-bottom">
+            <h1>
+                <%= title %>
+            </h1>
+            <div class="d-flex align-items-center">
+                <span class="badge bg-secondary me-2">
+                    <%= settings.ip %>:<%= settings.port %>
+                </span>
+                <span class="settings-icon" id="settingsBtn" title="设置">⚙️</span>
+            </div>
+        </header>
+
+        <div class="upload-section">
+            <div class="row g-3">
+                <!-- 文件上传 -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">上传文件</h5>
+                            <form id="fileUploadForm" enctype="multipart/form-data">
+                                <div class="mb-3">
+                                    <input type="file" class="form-control" id="fileInput" name="file">
+                                </div>
+                                <div class="preview-container" id="filePreviewContainer">
+                                    <!-- 图片预览 -->
+                                    <div id="imagePreview" class="preview-item" style="display: none;">
+                                        <img id="previewImage" class="preview-image" alt="图片预览">
+                                    </div>
+
+                                    <!-- 视频预览 -->
+                                    <div id="videoPreview" class="preview-item" style="display: none;">
+                                        <video id="previewVideo" class="preview-video" controls></video>
+                                    </div>
+
+                                    <!-- 音频预览 -->
+                                    <div id="audioPreview" class="preview-item" style="display: none;">
+                                        <audio id="previewAudio" class="preview-audio" controls></audio>
+                                    </div>
+
+                                    <!-- 文本预览 -->
+                                    <div id="textPreview" class="preview-item" style="display: none;">
+                                        <pre id="previewText" class="preview-text"></pre>
+                                    </div>
+
+                                    <!-- PDF预览 -->
+                                    <div id="pdfPreview" class="preview-item" style="display: none;">
+                                        <div class="alert alert-info">选择了PDF文件，上传后可以查看</div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">上传</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 文本分享 -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">分享文本</h5>
+
+                            <!-- 添加文本/Markdown切换按钮 -->
+                            <div class="editor-toggle btn-group btn-group-sm mb-3" role="group">
+                                <input type="radio" class="btn-check" name="editorType" id="textEditorBtn" checked>
+                                <label class="btn btn-outline-secondary" for="textEditorBtn">普通文本</label>
+
+                                <input type="radio" class="btn-check" name="editorType" id="markdownEditorBtn">
+                                <label class="btn btn-outline-secondary" for="markdownEditorBtn">Markdown</label>
+                            </div>
+
+                            <form id="textShareForm">
+                                <div class="mb-3">
+                                    <!-- 普通文本编辑器 -->
+                                    <div id="textEditorContainer">
+                                        <textarea class="form-control" id="messageInput" name="message" rows="3"
+                                            placeholder="输入要分享的文本..."></textarea>
+                                    </div>
+
+                                    <!-- Markdown编辑器 -->
+                                    <div id="markdownEditorContainer" style="display: none;">
+                                        <textarea id="markdownEditor"></textarea>
+                                        <input type="hidden" id="markdownContent" name="markdownContent">
+                                    </div>
+
+                                    <input type="hidden" id="contentType" name="contentType" value="text">
+                                </div>
+                                <button type="submit" class="btn btn-primary">分享</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- QR Code 显示服务地址 -->
+        <div class="qrcode-container mb-4">
+            <div id="qrcode"></div>
+            <p class="mt-2">扫描二维码访问此文件共享服务</p>
+        </div>
+
+        <!-- 文件列表 -->
+        <h2>共享文件列表</h2>
+        <div class="file-list">
+            <% if (files && files.length> 0) { %>
+                <% files.forEach(function(file) { %>
+                    <div class="file-item">
+                        <div class="d-flex justify-content-between align-items-top">
+                            <div>
+                                <h5>
+                                    <% if (file.type==='file' ) { %>
+                                        <a href="/download/<%= file.id %>">
+                                            <%= file.name %>
+                                        </a>
+                                        <% } else { %>
+                                            <span>
+                                                <%= file.name %>
+                                            </span>
+                                            <% } %>
+                                </h5>
+                                <div class="timestamp">
+                                    分享者: <%= file.username %> |
+                                        时间: <%= new Date(file.uploadTime).toLocaleString() %>
+                                </div>
+                            </div>
+                            <div>
+                                <button class="btn btn-sm btn-outline-danger delete-btn"
+                                    data-id="<%= file.id %>">删除</button>
+                            </div>
+                        </div>
+
+                        <% if (file.type==='text' ) { %>
+                            <div class="text-content">
+                                <%= file.content %>
+                            </div>
+                            <% } %>
+                    </div>
+                    <% }); %>
+                        <% } else { %>
+                            <div class="alert alert-info">还没有共享的文件或文本，快来分享吧！</div>
+                            <% } %>
+        </div>
+    </div>
+
+    <!-- 设置模态框 -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="settingsModalLabel">服务设置</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="settingsForm">
+                        <div class="mb-3">
+                            <label for="uploadPath" class="form-label">上传路径</label>
+                            <input type="text" class="form-control" id="uploadPath" name="uploadPath"
+                                value="<%= settings.uploadPath %>">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="port" class="form-label">端口号</label>
+                            <input type="number" class="form-control" id="port" name="port"
+                                value="<%= settings.port %>">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="ip" class="form-label">IP 地址</label>
+                            <select class="form-select" id="ip" name="ip">
+                                <option value="<%= settings.ip %>" selected>
+                                    <%= settings.ip %>
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="authEnable" name="authEnable"
+                                <%=settings.authEnable ? 'checked' : '' %>>
+                            <label class="form-check-label" for="authEnable">启用密码保护</label>
+                        </div>
+
+                        <div class="mb-3" id="passwordGroup" <%=!settings.authEnable ? 'style="display:none"' : '' %>>
+                            <label for="password" class="form-label">访问密码</label>
+                            <input type="text" class="form-control" id="password" name="password"
+                                value="<%= settings.password %>">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="chunkSize" class="form-label">分片大小 (MB)</label>
+                            <input type="number" class="form-control" id="chunkSize" name="chunkSize"
+                                value="<%= settings.chunkSize %>">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="saveSettingsBtn">保存设置</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/qrcode.min.js"></script>
+    <script src="/js/toast.js"></script>
+    <!-- SimpleMDE Markdown编辑器 -->
+    <script src="/node_modules/simplemde/dist/simplemde.min.js"></script>
+    <!-- Markdown 解析和代码高亮 -->
+    <script src="/node_modules/marked/marked.min.js"></script>
+    <script src="/node_modules/highlight.js/highlight.min.js"></script>
+
+    <script>
+        // 初始化Markdown编辑器
+        let simplemde = null;
+
+        // 从 EJS 中提取设置变量，避免在 JavaScript 代码中混入 EJS 语法
+        const currentSettings = {
+            ip: '<%= settings.ip %>',
+            port: <%= settings.port %>,
+            uploadPath: '<%= settings.uploadPath %>',
+            authEnable: <%= settings.authEnable %>,
+            password: '<%= settings.password %>',
+            chunkSize: <%= settings.chunkSize %>
+        };
+
+        // 生成二维码
+        document.addEventListener('DOMContentLoaded', function () {
+            const qrcodeContainer = document.getElementById('qrcode');
+            const serviceUrl = 'http://' + currentSettings.ip + ':' + currentSettings.port;
+
+            // 初始化 Markdown 编辑器
+            simplemde = new SimpleMDE({
+                element: document.getElementById("markdownEditor"),
+                toolbar: ["bold", "italic", "heading", "|", "quote", "code", "unordered-list", "ordered-list", "|",
+                    "link", "image", "table", "|", "preview"],
+                placeholder: "输入 Markdown 格式的文本...",
+                spellChecker: false,
+                autosave: {
+                    enabled: true,
+                    uniqueId: "markdownEditor",
+                    delay: 1000,
+                },
+            });
+
+            // 配置 marked 使用 highlight.js
+            marked.setOptions({
+                highlight: function (code, lang) {
+                    if (lang && hljs.getLanguage(lang)) {
+                        return hljs.highlight(code, { language: lang }).value;
+                    }
+                    return hljs.highlightAuto(code).value;
+                }
+            });
+
+            // WebSocket 连接
+            let ws;
+
+            // 初始化 WebSocket 连接
+            function initWebSocket() {
+                const wsUrl = 'ws://' + currentSettings.ip + ':' + currentSettings.port;
+                ws = new WebSocket(wsUrl);
+
+                // 连接打开时的处理
+                ws.onopen = function () {
+                    console.log('WebSocket 连接已建立');
+                };
+
+                // 接收到消息时的处理
+                ws.onmessage = function (event) {
+                    try {
+                        const message = JSON.parse(event.data);
+                        console.log('收到 WebSocket 消息:', message);
+
+                        switch (message.type) {
+                            case 'files':
+                                // 收到完整的文件列表，重新渲染
+                                renderFilesList(message.data);
+                                break;
+
+                            case 'fileAdded':
+                                // 有新的文件或文本被添加，更新列表
+                                addFileToList(message.data);
+                                break;
+
+                            case 'fileRemoved':
+                                // 有文件或文本被删除，从列表中移除
+                                removeFileFromList(message.data);
+                                break;
+
+                            default:
+                                console.log('未知的消息类型:', message.type);
+                        }
+                    } catch (error) {
+                        console.error('解析 WebSocket 消息失败:', error);
+                    }
+                };
+
+                // 连接关闭时的处理
+                ws.onclose = function (event) {
+                    console.log('WebSocket 连接已关闭:', event.code, event.reason);
+
+                    // 如果不是正常关闭（例如服务器重启或网络问题），尝试重新连接
+                    if (event.code !== 1000) {
+                        console.log('尝试重新连接 WebSocket...');
+                        setTimeout(initWebSocket, 3000); // 3秒后尝试重连
+                    }
+                };
+
+                // 连接错误处理
+                ws.onerror = function (error) {
+                    console.error('WebSocket 错误:', error);
+                };
+            }
+
+            // 动态更新文件列表
+            function updateFilesList() {
+                fetch('/api/files')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            renderFilesList(data.data);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取文件列表失败:', error);
+                    });
+            }
+
+            // 渲染文件列表
+            function renderFilesList(files) {
+                const fileListContainer = document.querySelector('.file-list');
+
+                if (!files || files.length === 0) {
+                    fileListContainer.innerHTML = '<div class="alert alert-info">还没有共享的文件或文本，快来分享吧！</div>';
+                    return;
+                }
+
+                let html = '';
+                files.forEach(file => {
+                    html += generateFileItemHtml(file);
+                });
+
+                fileListContainer.innerHTML = html;
+
+                // 重新绑定删除按钮事件
+                bindDeleteButtons();
+            }
+
+            // 添加单个文件到列表
+            function addFileToList(file) {
+                const fileListContainer = document.querySelector('.file-list');
+                const emptyMessage = fileListContainer.querySelector('.alert.alert-info');
+
+                // 如果之前没有文件，现在有了，移除"没有文件"的提示
+                if (emptyMessage) {
+                    emptyMessage.remove();
+                }
+
+                // 创建新文件的 HTML
+                const fileHtml = generateFileItemHtml(file);
+
+                // 将新文件添加到列表顶部
+                if (fileListContainer.innerHTML.trim() === '') {
+                    fileListContainer.innerHTML = fileHtml;
+                } else {
+                    // 在文件列表的顶部添加新文件
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = fileHtml;
+                    const fileElement = tempDiv.firstElementChild;
+                    fileListContainer.insertBefore(fileElement, fileListContainer.firstChild);
+                }
+
+                // 绑定删除按钮事件
+                bindDeleteButtons();
+
+                // 显示添加动画效果
+                setTimeout(() => {
+                    const newFile = document.querySelector(`.file-item[data-id="${file.id}"]`);
+                    if (newFile) {
+                        newFile.classList.add('highlight-new');
+                        setTimeout(() => {
+                            newFile.classList.remove('highlight-new');
+                        }, 2000);
+                    }
+                }, 100);
+            }
+
+            // 从列表中移除文件
+            function removeFileFromList(fileId) {
+                const fileItem = document.querySelector(`.file-item[data-id="${fileId}"]`);
+                if (!fileItem) return;
+
+                // 添加删除动画
+                fileItem.classList.add('fade-out');
+
+                // 动画结束后移除元素
+                setTimeout(() => {
+                    fileItem.remove();
+
+                    // 如果没有文件了，显示提示
+                    if (document.querySelectorAll('.file-item').length === 0) {
+                        document.querySelector('.file-list').innerHTML =
+                            '<div class="alert alert-info">还没有共享的文件或文本，快来分享吧！</div>';
+                    }
+                }, 500); // 等待动画结束
+            }
+
+            // 生成文件项的 HTML
+            function generateFileItemHtml(file) {
+                // 根据不同类型生成不同的内容展示HTML
+                let contentHtml = '';
+
+                if (file.type === 'text') {
+                    if (file.contentType === 'markdown') {
+                        // 如果是Markdown类型，使用marked渲染内容
+                        contentHtml = `<div class="markdown-content">${marked.parse(file.content)}</div>`;
+                    } else {
+                        // 普通文本
+                        contentHtml = `<div class="text-content">${file.content}</div>`;
+                    }
+                }
+
+                return `
+                    <div class="file-item" data-id="${file.id}">
+                        <div class="d-flex justify-content-between align-items-top">
+                            <div>
+                                <h5>
+                                    ${file.type === 'file'
+                        ? `<a href="/download/${file.id}">${file.name}</a>`
+                        : `<span>${file.name}${file.contentType === 'markdown' ? ' (Markdown)' : ''}</span>`}
+                                </h5>
+                                <div class="timestamp">
+                                    分享者: ${file.username} | 
+                                    时间: ${new Date(file.uploadTime).toLocaleString()}
+                                </div>
+                            </div>
+                            <div>
+                                <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${file.id}">删除</button>
+                            </div>
+                        </div>
+                        ${contentHtml}
+                    </div>
+                `;
+            }
+
+            // 生成二维码
+            new QRCode(qrcodeContainer, {
+                text: serviceUrl,
+                width: 128,
+                height: 128,
+                colorDark: '#000',
+                colorLight: '#fff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            // 获取可用的 IP 地址列表
+            fetch('/api/ip-addresses')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const ipSelect = document.getElementById('ip');
+                        ipSelect.innerHTML = '';
+
+                        data.addresses.forEach(address => {
+                            const option = document.createElement('option');
+                            option.value = address.address;
+                            option.textContent = `${address.address} (${address.name})`;
+                            option.selected = address.address === currentSettings.ip;
+                            ipSelect.appendChild(option);
+                        });
+                    }
+                });
+
+            // 绑定删除按钮事件
+            function bindDeleteButtons() {
+                document.querySelectorAll('.delete-btn').forEach(button => {
+                    button.addEventListener('click', handleDelete);
+                });
+            }
+
+            // 处理删除操作
+            async function handleDelete(e) {
+                const id = this.getAttribute('data-id');
+
+                if (confirm('确定要删除这个项目吗？')) {
+                    try {
+                        const response = await fetch(`/api/files/${id}`, {
+                            method: 'DELETE'
+                        });
+
+                        const result = await response.json();
+
+                        if (result.success) {
+                            toast.success('删除成功');
+
+                            // 在这里不需要手动更新 UI，WebSocket 会通知所有客户端更新
+                        } else {
+                            toast.error('删除失败: ' + result.message);
+                        }
+                    } catch (error) {
+                        console.error('删除出错:', error);
+                        toast.error('删除出错');
+                    }
+                }
+            }
+
+            // 初始绑定删除按钮
+            bindDeleteButtons();
+
+            // 文件预览功能
+            document.getElementById('fileInput').addEventListener('change', function (e) {
+                const file = this.files[0];
+                if (!file) {
+                    document.getElementById('filePreviewContainer').style.display = 'none';
+                    return;
+                }
+
+                // 显示预览容器
+                document.getElementById('filePreviewContainer').style.display = 'block';
+
+                // 隐藏所有预览项
+                document.querySelectorAll('.preview-item').forEach(item => {
+                    item.style.display = 'none';
+                });
+
+                // 根据文件类型显示不同的预览
+                const fileType = file.type;
+
+                if (fileType.startsWith('image/')) {
+                    // 图片预览
+                    const previewImage = document.getElementById('previewImage');
+                    previewImage.src = URL.createObjectURL(file);
+                    document.getElementById('imagePreview').style.display = 'block';
+                }
+                else if (fileType.startsWith('video/')) {
+                    // 视频预览
+                    const previewVideo = document.getElementById('previewVideo');
+                    previewVideo.src = URL.createObjectURL(file);
+                    document.getElementById('videoPreview').style.display = 'block';
+                }
+                else if (fileType.startsWith('audio/')) {
+                    // 音频预览
+                    const previewAudio = document.getElementById('previewAudio');
+                    previewAudio.src = URL.createObjectURL(file);
+                    document.getElementById('audioPreview').style.display = 'block';
+                }
+                else if (fileType === 'application/pdf') {
+                    // PDF提示
+                    document.getElementById('pdfPreview').style.display = 'block';
+                }
+                else if (fileType === 'text/plain' || fileType === 'text/html' || fileType === 'text/css' ||
+                    fileType === 'text/javascript' || fileType === 'application/json' ||
+                    file.name.endsWith('.md') || file.name.endsWith('.txt') ||
+                    file.name.endsWith('.js') || file.name.endsWith('.html') ||
+                    file.name.endsWith('.css') || file.name.endsWith('.json')) {
+                    // 文本文件预览
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        document.getElementById('previewText').textContent = e.target.result;
+                        document.getElementById('textPreview').style.display = 'block';
+                    };
+                    reader.readAsText(file);
+                }
+            });
+
+            // 文件上传表单提交
+            document.getElementById('fileUploadForm').addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const fileInput = document.getElementById('fileInput');
+
+                if (!fileInput.files.length) {
+                    toast.warning('请选择要上传的文件');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+
+                try {
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        toast.success('文件上传成功');
+
+                        // 清空文件输入框，便于继续上传
+                        fileInput.value = '';
+                        // 隐藏预览
+                        document.getElementById('filePreviewContainer').style.display = 'none';
+                    } else {
+                        toast.error('上传失败: ' + result.message);
+                    }
+                } catch (error) {
+                    console.error('上传出错:', error);
+                    toast.error('上传出错');
+                }
+            });
+
+            // 文本分享表单提交
+            document.getElementById('textShareForm').addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const messageInput = document.getElementById('messageInput');
+                const contentType = document.getElementById('contentType').value;
+
+                let content = '';
+                if (contentType === 'text') {
+                    content = messageInput.value.trim();
+                    if (!content) {
+                        toast.warning('请输入要分享的文本');
+                        return;
+                    }
+                } else if (contentType === 'markdown') {
+                    content = simplemde.value().trim();
+                    if (!content) {
+                        toast.warning('请输入要分享的 Markdown 内容');
+                        return;
+                    }
+                }
+
+                try {
+                    const response = await fetch('/api/text', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: content,
+                            contentType: contentType
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        toast.success('内容分享成功');
+
+                        // 清空输入框，便于继续输入
+                        if (contentType === 'text') {
+                            messageInput.value = '';
+                        } else if (contentType === 'markdown') {
+                            simplemde.value('');
+                        }
+                    } else {
+                        toast.error('分享失败: ' + result.message);
+                    }
+                } catch (error) {
+                    console.error('分享出错:', error);
+                    toast.error('分享出错');
+                }
+            });
+
+            // 文本/Markdown切换
+            document.getElementById('textEditorBtn').addEventListener('change', function () {
+                document.getElementById('textEditorContainer').style.display = 'block';
+                document.getElementById('markdownEditorContainer').style.display = 'none';
+                document.getElementById('contentType').value = 'text';
+            });
+
+            document.getElementById('markdownEditorBtn').addEventListener('change', function () {
+                document.getElementById('textEditorContainer').style.display = 'none';
+                document.getElementById('markdownEditorContainer').style.display = 'block';
+                document.getElementById('contentType').value = 'markdown';
+                // 刷新编辑器，确保渲染正确
+                setTimeout(() => {
+                    simplemde.codemirror.refresh();
+                }, 10);
+            });
+
+            // 设置模态框
+            const settingsModal = new bootstrap.Modal(document.getElementById('settingsModal'));
+
+            document.getElementById('settingsBtn').addEventListener('click', function () {
+                settingsModal.show();
+            });
+
+            // 密码保护复选框切换
+            document.getElementById('authEnable').addEventListener('change', function () {
+                document.getElementById('passwordGroup').style.display = this.checked ? 'block' : 'none';
+            });
+
+            // 保存设置
+            document.getElementById('saveSettingsBtn').addEventListener('click', async function () {
+                const form = document.getElementById('settingsForm');
+                const formData = new FormData(form);
+                const data = {};
+
+                formData.forEach((value, key) => {
+                    if (key === 'port' || key === 'chunkSize') {
+                        data[key] = parseInt(value);
+                    } else if (key === 'authEnable') {
+                        data[key] = value === 'on';
+                    } else {
+                        data[key] = value;
+                    }
+                });
+
+                // 处理未选中的复选框
+                if (!formData.has('authEnable')) {
+                    data.authEnable = false;
+                }
+
+                try {
+                    const response = await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        toast.success('设置已保存');
+                        settingsModal.hide();
+
+                        // 检查服务器是否要求重新登录（启用了密码保护）
+                        if (result.requireRelogin) {
+                            toast.info('已启用密码保护，即将跳转到登录页面...');
+
+                            // 清除当前的 token cookie
+                            document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+
+                            // 延迟跳转到登录页，让用户有时间看到提示
+                            setTimeout(() => {
+                                window.location.href = '/login';
+                            }, 1500);
+                        } else if (
+                            // 如果修改了端口或IP，需要重新加载页面
+                            data.port !== currentSettings.port ||
+                            data.ip !== currentSettings.ip
+                        ) {
+                            toast.info('IP或端口已修改，页面将重新加载...');
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1500);
+                        }
+                    } else {
+                        toast.error('保存设置失败: ' + result.message);
+                    }
+                } catch (error) {
+                    console.error('保存设置出错:', error);
+                    toast.error('保存设置出错');
+                }
+            });
+
+            // 初始化 WebSocket 连接
+            initWebSocket();
+
+            // 添加动画样式
+            const style = document.createElement('style');
+            style.textContent = `
+                .highlight-new {
+                    animation: highlight 2s ease;
+                }
+                
+                @keyframes highlight {
+                    0% {
+                        background-color: #d4edda;
+                        transform: translateY(-10px);
+                    }
+                    50% {
+                        background-color: #d4edda;
+                    }
+                    100% {
+                        background-color: transparent;
+                    }
+                }
+                
+                .fade-out {
+                    animation: fadeOut 0.5s ease forwards;
+                }
+                
+                @keyframes fadeOut {
+                    0% {
+                        opacity: 1;
+                        transform: translateX(0);
+                    }
+                    100% {
+                        opacity: 0;
+                        transform: translateX(-10px);
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        });
+    </script>
+</body>
+
+</html>

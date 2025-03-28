@@ -1,0 +1,94 @@
+/**
+ * Toast 消息提示样式
+ */
+
+/* Toast 容器 */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    max-width: 350px;
+    z-index: 9999;
+}
+
+/* Toast 单个提示样式 */
+.toast {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 12px 20px;
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    transform: translateY(-20px);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    color: #333;
+    font-size: 14px;
+}
+
+/* Toast 显示状态 */
+.toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Toast 图标 */
+.toast-icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    margin-right: 12px;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* Toast 消息文本 */
+.toast-message {
+    flex: 1;
+    word-break: break-word;
+}
+
+/* 成功类型 */
+.toast.success {
+    border-left: 4px solid #67c23a;
+}
+
+.toast.success .toast-icon {
+    background-color: #67c23a;
+    color: white;
+}
+
+/* 错误类型 */
+.toast.error {
+    border-left: 4px solid #f56c6c;
+}
+
+.toast.error .toast-icon {
+    background-color: #f56c6c;
+    color: white;
+}
+
+/* 警告类型 */
+.toast.warning {
+    border-left: 4px solid #e6a23c;
+}
+
+.toast.warning .toast-icon {
+    background-color: #e6a23c;
+    color: white;
+}
+
+/* 信息类型 */
+.toast.info {
+    border-left: 4px solid #909399;
+}
+
+.toast.info .toast-icon {
+    background-color: #909399;
+    color: white;
+}
