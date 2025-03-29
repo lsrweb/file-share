@@ -7,687 +7,457 @@
     <title>
         <%= title %>
     </title>
-    <link href="/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- React 和 ReactDOM -->
+    <script src="/js/react/react.production.min.js"></script>
+    <script src="/js/react/react-dom.production.min.js"></script>
+
+    <!-- Babel -->
+    <script src="/js/react/babel.min.js"></script>
+
+    <!-- React Bootstrap -->
+    <link rel="stylesheet" href="/css/bootstrap5.min.css">
+    <script src="/js/react/react-bootstrap.min.js"></script>
+
+    <!-- 其他依赖 -->
     <link href="/css/toast.css" rel="stylesheet">
     <link href="/css/simplemde.min.css" rel="stylesheet">
     <link href="/css/github.min.css" rel="stylesheet">
-    <style>
-        .file-list {
-            margin-top: 20px;
-        }
 
-        .file-item {
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-        }
-
-        .file-item:hover {
-            background-color: #f8f9fa;
-        }
-
-        .text-content {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin-top: 10px;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        .markdown-content {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin-top: 10px;
-        }
-
-        .upload-section {
-            margin-bottom: 30px;
-        }
-
-        .settings-icon {
-            cursor: pointer;
-            font-size: 1.4rem;
-            color: #6c757d;
-        }
-
-        .timestamp {
-            font-size: 0.8rem;
-            color: #6c757d;
-        }
-
-        .qrcode-container {
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        /* 文件预览样式 */
-        .preview-container {
-            display: none;
-            margin-top: 15px;
-        }
-
-        .preview-image {
-            max-width: 100%;
-            max-height: 300px;
-            border-radius: 5px;
-        }
-
-        .preview-video {
-            max-width: 100%;
-            max-height: 300px;
-            border-radius: 5px;
-        }
-
-        .preview-audio {
-            width: 100%;
-        }
-
-        .preview-text {
-            width: 100%;
-            height: 200px;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 5px;
-            padding: 10px;
-            overflow: auto;
-            font-family: monospace;
-        }
-
-        .file-type-switcher {
-            margin-bottom: 15px;
-        }
-
-        /* 文本和Markdown切换 */
-        .editor-toggle {
-            margin-bottom: 10px;
-        }
-
-        .CodeMirror,
-        .CodeMirror-scroll {
-            min-height: 200px;
-        }
-    </style>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
-<body>
-    <div class="container py-4">
-        <header class="d-flex justify-content-between align-items-center pb-3 mb-4 border-bottom">
-            <h1>
-                <%= title %>
-            </h1>
-            <div class="d-flex align-items-center">
-                <span class="badge bg-secondary me-2">
-                    <%= settings.ip %>:<%= settings.port %>
-                </span>
-                <span class="settings-icon" id="settingsBtn" title="设置">⚙️</span>
-            </div>
-        </header>
-
-        <div class="upload-section">
-            <div class="row g-3">
-                <!-- 文件上传 -->
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">上传文件</h5>
-                            <form id="fileUploadForm" enctype="multipart/form-data">
-                                <div class="mb-3">
-                                    <input type="file" class="form-control" id="fileInput" name="file">
-                                </div>
-                                <div class="preview-container" id="filePreviewContainer">
-                                    <!-- 图片预览 -->
-                                    <div id="imagePreview" class="preview-item" style="display: none;">
-                                        <img id="previewImage" class="preview-image" alt="图片预览">
-                                    </div>
-
-                                    <!-- 视频预览 -->
-                                    <div id="videoPreview" class="preview-item" style="display: none;">
-                                        <video id="previewVideo" class="preview-video" controls></video>
-                                    </div>
-
-                                    <!-- 音频预览 -->
-                                    <div id="audioPreview" class="preview-item" style="display: none;">
-                                        <audio id="previewAudio" class="preview-audio" controls></audio>
-                                    </div>
-
-                                    <!-- 文本预览 -->
-                                    <div id="textPreview" class="preview-item" style="display: none;">
-                                        <pre id="previewText" class="preview-text"></pre>
-                                    </div>
-
-                                    <!-- PDF预览 -->
-                                    <div id="pdfPreview" class="preview-item" style="display: none;">
-                                        <div class="alert alert-info">选择了PDF文件，上传后可以查看</div>
-                                    </div>
-                                </div>
-                                <button type="submit" class="btn btn-primary">上传</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 文本分享 -->
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">分享文本</h5>
-
-                            <!-- 添加文本/Markdown切换按钮 -->
-                            <div class="editor-toggle btn-group btn-group-sm mb-3" role="group">
-                                <input type="radio" class="btn-check" name="editorType" id="textEditorBtn" checked>
-                                <label class="btn btn-outline-secondary" for="textEditorBtn">普通文本</label>
-
-                                <input type="radio" class="btn-check" name="editorType" id="markdownEditorBtn">
-                                <label class="btn btn-outline-secondary" for="markdownEditorBtn">Markdown</label>
-                            </div>
-
-                            <form id="textShareForm">
-                                <div class="mb-3">
-                                    <!-- 普通文本编辑器 -->
-                                    <div id="textEditorContainer">
-                                        <textarea class="form-control" id="messageInput" name="message" rows="3"
-                                            placeholder="输入要分享的文本..."></textarea>
-                                    </div>
-
-                                    <!-- Markdown编辑器 -->
-                                    <div id="markdownEditorContainer" style="display: none;">
-                                        <textarea id="markdownEditor"></textarea>
-                                        <input type="hidden" id="markdownContent" name="markdownContent">
-                                    </div>
-
-                                    <input type="hidden" id="contentType" name="contentType" value="text">
-                                </div>
-                                <button type="submit" class="btn btn-primary">分享</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- QR Code 显示服务地址 -->
-        <div class="qrcode-container mb-4">
-            <div id="qrcode"></div>
-            <p class="mt-2">扫描二维码访问此文件共享服务</p>
-        </div>
-
-        <!-- 文件列表 -->
-        <h2>共享文件列表</h2>
-        <div class="file-list">
-            <% if (files && files.length> 0) { %>
-                <% files.forEach(function(file) { %>
-                    <div class="file-item">
-                        <div class="d-flex justify-content-between align-items-top">
-                            <div>
-                                <h5>
-                                    <% if (file.type==='file' ) { %>
-                                        <a href="/download/<%= file.id %>">
-                                            <%= file.name %>
-                                        </a>
-                                        <% } else { %>
-                                            <span>
-                                                <%= file.name %>
-                                            </span>
-                                            <% } %>
-                                </h5>
-                                <div class="timestamp">
-                                    分享者: <%= file.username %> |
-                                        时间: <%= new Date(file.uploadTime).toLocaleString() %>
-                                </div>
-                            </div>
-                            <div>
-                                <button class="btn btn-sm btn-outline-danger delete-btn"
-                                    data-id="<%= file.id %>">删除</button>
-                            </div>
-                        </div>
-
-                        <% if (file.type==='text' ) { %>
-                            <div class="text-content">
-                                <%= file.content %>
-                            </div>
-                            <% } %>
-                    </div>
-                    <% }); %>
-                        <% } else { %>
-                            <div class="alert alert-info">还没有共享的文件或文本，快来分享吧！</div>
-                            <% } %>
-        </div>
+<body class="bg-gray-100">
+    <div id="root">
+        <!-- React 将在这里渲染应用 -->
     </div>
 
-    <!-- 设置模态框 -->
-    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="settingsModalLabel">服务设置</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="settingsForm">
-                        <div class="mb-3">
-                            <label for="uploadPath" class="form-label">上传路径</label>
-                            <input type="text" class="form-control" id="uploadPath" name="uploadPath"
-                                value="<%= settings.uploadPath %>">
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="port" class="form-label">端口号</label>
-                            <input type="number" class="form-control" id="port" name="port"
-                                value="<%= settings.port %>">
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="ip" class="form-label">IP 地址</label>
-                            <select class="form-select" id="ip" name="ip">
-                                <option value="<%= settings.ip %>" selected>
-                                    <%= settings.ip %>
-                                </option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="authEnable" name="authEnable"
-                                <%=settings.authEnable ? 'checked' : '' %>>
-                            <label class="form-check-label" for="authEnable">启用密码保护</label>
-                        </div>
-
-                        <div class="mb-3" id="passwordGroup" <%=!settings.authEnable ? 'style="display:none"' : '' %>>
-                            <label for="password" class="form-label">访问密码</label>
-                            <input type="text" class="form-control" id="password" name="password"
-                                value="<%= settings.password %>">
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="chunkSize" class="form-label">分片大小 (MB)</label>
-                            <input type="number" class="form-control" id="chunkSize" name="chunkSize"
-                                value="<%= settings.chunkSize %>">
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" id="saveSettingsBtn">保存设置</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="/js/bootstrap.bundle.min.js"></script>
+    <!-- 必要的脚本 -->
     <script src="/js/qrcode.min.js"></script>
     <script src="/js/toast.js"></script>
-    <!-- SimpleMDE Markdown编辑器 -->
-    <script src="/node_modules/simplemde/dist/simplemde.min.js"></script>
-    <!-- Markdown 解析和代码高亮 -->
-    <script src="/node_modules/marked/marked.min.js"></script>
-    <script src="/node_modules/highlight.js/highlight.min.js"></script>
+    <script src="/js/simplemde.min.js"></script>
+    <script src="/js/marked.min.js"></script>
+    <script src="/js/highlight.min.js"></script>
 
-    <script>
-        // 初始化Markdown编辑器
-        let simplemde = null;
+    <!-- React 组件代码 -->
+    <script type="text/babel">
+        // 解构需要用到的 React Bootstrap 组件
+        const {
+            Container, Row, Col, Card, Form, Button,
+            Badge, Modal, Alert, ButtonGroup
+        } = ReactBootstrap;
 
-        // 从 EJS 中提取设置变量，避免在 JavaScript 代码中混入 EJS 语法
-        const currentSettings = {
-            ip: '<%= settings.ip %>',
-            port: <%= settings.port %>,
-            uploadPath: '<%= settings.uploadPath %>',
-            authEnable: <%= settings.authEnable %>,
-            password: '<%= settings.password %>',
-            chunkSize: <%= settings.chunkSize %>
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // 文件类型图标组件
+        const FileTypeBadge = ({ fileType, contentType }) => {
+            let badgeClass = "text-xs px-2 py-1 rounded-full ml-2";
+
+            if (contentType === 'markdown') {
+                return <span className={`${badgeClass} bg-purple-500 text-white`}>Markdown</span>;
+            }
+
+            switch (fileType) {
+                case 'image':
+                    return <span className={`${badgeClass} bg-green-500 text-white`}>图片</span>;
+                case 'video':
+                    return <span className={`${badgeClass} bg-red-500 text-white`}>视频</span>;
+                case 'audio':
+                    return <span className={`${badgeClass} bg-blue-400 text-white`}>音频</span>;
+                case 'pdf':
+                    return <span className={`${badgeClass} bg-orange-500 text-white`}>PDF</span>;
+                case 'text':
+                    return <span className={`${badgeClass} bg-gray-500 text-white`}>文本</span>;
+                default:
+                    return <span className={`${badgeClass} bg-gray-500 text-white`}>其他</span>;
+            }
         };
 
-        // 生成二维码
-        document.addEventListener('DOMContentLoaded', function () {
-            const qrcodeContainer = document.getElementById('qrcode');
-            const serviceUrl = 'http://' + currentSettings.ip + ':' + currentSettings.port;
+        // 文件预览组件
+        const FilePreview = ({ file }) => {
+            if (file.type !== 'file') return null;
 
-            // 初始化 Markdown 编辑器
-            simplemde = new SimpleMDE({
-                element: document.getElementById("markdownEditor"),
-                toolbar: ["bold", "italic", "heading", "|", "quote", "code", "unordered-list", "ordered-list", "|",
-                    "link", "image", "table", "|", "preview"],
-                placeholder: "输入 Markdown 格式的文本...",
-                spellChecker: false,
-                autosave: {
-                    enabled: true,
-                    uniqueId: "markdownEditor",
-                    delay: 1000,
-                },
+            const downloadUrl = `/download/${file.id}`;
+
+            switch (file.fileType) {
+                case 'image':
+                    return (
+                        <div className="mt-3">
+                            <img src={downloadUrl} className="max-w-full h-auto rounded" alt={file.name} />
+                        </div>
+                    );
+                case 'video':
+                    return (
+                        <div className="mt-3">
+                            <video
+                                src={downloadUrl}
+                                className="max-w-full rounded"
+                                controls
+                                preload="metadata"
+                            ></video>
+                        </div>
+                    );
+                case 'audio':
+                    return (
+                        <div className="mt-3">
+                            <audio
+                                src={downloadUrl}
+                                className="w-full"
+                                controls
+                            ></audio>
+                        </div>
+                    );
+                case 'pdf':
+                    return (
+                        <div className="mt-3">
+                            <iframe
+                                src={downloadUrl}
+                                className="w-full h-96 rounded border"
+                                title={file.name}
+                            ></iframe>
+                        </div>
+                    );
+                default:
+                    return (
+                        <div className="text-center mt-3">
+                            <a
+                                href={downloadUrl}
+                                className="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+                            >
+                                下载文件
+                            </a>
+                        </div>
+                    );
+            }
+        };
+
+        // 文件项组件
+        const FileItem = ({ file, onDelete, onEdit }) => {
+            const [isEditing, setIsEditing] = React.useState(false);
+            const [editContent, setEditContent] = React.useState(file.content || '');
+
+            const handleEditSubmit = (e) => {
+                e.preventDefault();
+                onEdit(file.id, editContent);
+                setIsEditing(false);
+            };
+
+            return (
+                <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 mb-4">
+                    {/* 文件头部信息 - 在移动设备上垂直排列 */}
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
+                        <div className="mb-2 sm:mb-0">
+                            <div className="flex flex-wrap items-center">
+                                <span className="font-semibold text-base break-all mr-2">{file.name}</span>
+                                {file.type === 'file' ? (
+                                    file.fileType && <FileTypeBadge fileType={file.fileType} />
+                                ) : (
+                                    <FileTypeBadge contentType={file.contentType} />
+                                )}
+                            </div>
+                            <div className="text-gray-500 text-xs sm:text-sm mt-1 break-words">
+                                <span className="block sm:inline">分享者: {file.username}</span>
+                                <span className="hidden sm:inline"> | </span>
+                                <span className="block sm:inline">时间: {new Date(file.uploadTime).toLocaleString()}</span>
+                                {file.updateTime && (
+                                    <>
+                                        <span className="hidden sm:inline"> | </span>
+                                        <span className="block sm:inline">更新于: {new Date(file.updateTime).toLocaleString()}</span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex mt-2 sm:mt-0">
+                            {file.type === 'text' && (
+                                <button
+                                    className="px-3 py-1 border border-blue-300 text-blue-500 rounded mr-2 text-sm hover:bg-blue-50 transition"
+                                    onClick={() => setIsEditing(true)}
+                                >
+                                    编辑
+                                </button>
+                            )}
+                            <button
+                                className="px-3 py-1 border border-red-300 text-red-500 rounded text-sm hover:bg-red-50 transition"
+                                onClick={() => onDelete(file.id)}
+                            >
+                                删除
+                            </button>
+                        </div>
+                    </div>
+
+                    {file.type === 'file' ? (
+                        <FilePreview file={file} />
+                    ) : isEditing ? (
+                        <form onSubmit={handleEditSubmit} className="mt-3">
+                            <textarea
+                                className="w-full border rounded p-2"
+                                rows={5}
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                            />
+                            <div className="mt-2 flex justify-end">
+                                <button
+                                    type="submit"
+                                    className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition mr-2"
+                                >
+                                    保存
+                                </button>
+                                <button
+                                    type="button"
+                                    className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 transition"
+                                    onClick={() => setIsEditing(false)}
+                                >
+                                    取消
+                                </button>
+                            </div>
+                        </form>
+                    ) : (
+                        <div className={`mt-3 overflow-x-auto ${file.contentType === 'markdown' ? 'markdown-content' : 'whitespace-pre-wrap'}`}>
+                            {file.contentType === 'markdown' ? (
+                                <div dangerouslySetInnerHTML={{
+                                    __html: marked.parse(file.content)
+                                }} />
+                            ) : (
+                                file.content
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // 文件列表样式
+        const FileList = ({ files, onDelete, onEdit }) => {
+            return (
+                <div className="space-y-4">
+                    {files.length > 0 ? (
+                        files.map(file => (
+                            <FileItem
+                                key={file.id}
+                                file={file}
+                                onDelete={onDelete}
+                                onEdit={onEdit}
+                            />
+                        ))
+                    ) : (
+                        <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded">
+                            还没有共享的文件或文本，快来分享吧！
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // 成员列表组件
+        const MembersList = ({ members }) => {
+            return (
+                <div className="mt-6 bg-white rounded-lg shadow-sm p-4">
+                    <div className="flex justify-between items-center mb-3">
+                        <span className="text-lg font-semibold">当前在线成员 ({members.length})</span>
+                        <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+                            {members.length} 人在线
+                        </span>
+                    </div>
+                    {members.length > 0 ? (
+                        <div className="space-y-2">
+                            {members.map(member => (
+                                <div key={member.id} className="bg-gray-50 p-2 rounded">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <span className="font-medium">{member.name}</span>
+                                            <span className="text-gray-500 text-sm ml-2">({member.ip})</span>
+                                        </div>
+                                        <span className="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full">
+                                            {new Date(member.connectTime).toLocaleTimeString()}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-2 rounded text-sm">
+                            暂无其他成员在线
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // App 组件
+        function App() {
+            const [files, setFiles] = React.useState([]);
+            const [members, setMembers] = React.useState([]);
+            const [settings, setSettings] = React.useState({
+                ip: 'localhost',
+                port: 5421,
+                uploadPath: '',
+                authEnable: false,
+                password: '',
+                chunkSize: 20
             });
+            const [showSettings, setShowSettings] = React.useState(false);
+            const [contentType, setContentType] = React.useState('text');
+            const [ipAddresses, setIpAddresses] = React.useState([]);
+            const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+            const simplemdeRef = React.useRef(null);
 
-            // 配置 marked 使用 highlight.js
-            marked.setOptions({
-                highlight: function (code, lang) {
-                    if (lang && hljs.getLanguage(lang)) {
-                        return hljs.highlight(code, { language: lang }).value;
-                    }
-                    return hljs.highlightAuto(code).value;
-                }
-            });
-
-            // WebSocket 连接
-            let ws;
-
-            // 初始化 WebSocket 连接
-            function initWebSocket() {
-                const wsUrl = 'ws://' + currentSettings.ip + ':' + currentSettings.port;
-                ws = new WebSocket(wsUrl);
-
-                // 连接打开时的处理
-                ws.onopen = function () {
-                    console.log('WebSocket 连接已建立');
+            // 检测设备是否为移动设备
+            React.useEffect(() => {
+                const handleResize = () => {
+                    setIsMobile(window.innerWidth < 768);
                 };
 
-                // 接收到消息时的处理
-                ws.onmessage = function (event) {
+                window.addEventListener('resize', handleResize);
+                return () => window.removeEventListener('resize', handleResize);
+            }, []);
+
+            // 获取IP地址列表
+            const fetchIpAddresses = async () => {
+                try {
+                    const response = await fetch('/api/ip-addresses');
+                    const result = await response.json();
+                    if (result.success && result.addresses) {
+                        setIpAddresses(result.addresses);
+                        // 如果当前settings中的IP不在地址列表中，使用第一个可用的IP
+                        if (!result.addresses.includes(settings.ip) && result.addresses.length > 0) {
+                            const newSettings = { ...settings, ip: result.addresses[0] };
+                            setSettings(newSettings);
+                        }
+                    }
+                } catch (error) {
+                    console.error('获取IP地址失败:', error);
+                }
+            };
+
+            // 获取成员列表
+            const fetchMembers = async () => {
+                try {
+                    const response = await fetch('/api/members');
+                    const result = await response.json();
+                    if (result.success) {
+                        setMembers(result.data || []);
+                    }
+                } catch (error) {
+                    console.error('获取成员列表失败:', error);
+                }
+            };
+
+            React.useEffect(() => {
+                // 初始化时获取IP地址列表
+                fetchIpAddresses();
+
+                // 初始化时获取成员列表
+                fetchMembers();
+
+                // 初始化 Markdown 编辑器
+                if (!simplemdeRef.current && document.getElementById("markdownEditor")) {
+                    simplemdeRef.current = new SimpleMDE({
+                        element: document.getElementById("markdownEditor"),
+                        toolbar: ["bold", "italic", "heading", "|", "quote", "code",
+                            "unordered-list", "ordered-list", "|", "link",
+                            "image", "table", "|", "preview"],
+                        placeholder: "输入 Markdown 格式的文本...",
+                        spellChecker: false,
+                        autosave: {
+                            enabled: true,
+                            uniqueId: "markdownEditor",
+                            delay: 1000,
+                        },
+                    });
+                }
+
+                // 初始化 QR Code
+                try {
+                    const qrcodeElement = document.getElementById('qrcode');
+                    if (qrcodeElement) {
+                        qrcodeElement.innerHTML = ''; // 清除旧的二维码
+                        new QRCode(qrcodeElement, {
+                            text: `http://${settings.ip}:${settings.port}`,
+                            width: 128,
+                            height: 128,
+                            colorDark: '#000',
+                            colorLight: '#fff',
+                            correctLevel: QRCode.CorrectLevel.H
+                        });
+                    }
+                } catch (error) {
+                    console.error('QR Code initialization failed:', error);
+                }
+
+                // 初始化 WebSocket 连接
+                initWebSocket();
+            }, [settings.ip, settings.port]); // 当IP或端口变化时重新初始化
+
+            // WebSocket 初始化
+            const initWebSocket = () => {
+                if (!settings || !settings.ip || !settings.port) return;
+
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const host = window.location.hostname;
+                const ws = new WebSocket(`${protocol}//${host}:${settings.port}`);
+
+                ws.onmessage = (event) => {
                     try {
                         const message = JSON.parse(event.data);
-                        console.log('收到 WebSocket 消息:', message);
+                        console.log('收到WebSocket消息:', message);
 
                         switch (message.type) {
                             case 'files':
-                                // 收到完整的文件列表，重新渲染
-                                renderFilesList(message.data);
+                                setFiles(message.data);
                                 break;
-
                             case 'fileAdded':
-                                // 有新的文件或文本被添加，更新列表
-                                addFileToList(message.data);
+                                setFiles(prev => [message.data, ...prev]);
                                 break;
-
                             case 'fileRemoved':
-                                // 有文件或文本被删除，从列表中移除
-                                removeFileFromList(message.data);
+                                setFiles(prev => prev.filter(f => f.id !== message.data));
                                 break;
-
+                            case 'fileUpdated':
+                                setFiles(prev => prev.map(file =>
+                                    file.id === message.data.id ? message.data : file
+                                ));
+                                break;
+                            case 'members':
+                                console.log('更新成员列表:', message.data);
+                                setMembers(message.data || []);
+                                break;
                             default:
-                                console.log('未知的消息类型:', message.type);
+                                console.log('未知消息类型:', message.type);
                         }
                     } catch (error) {
-                        console.error('解析 WebSocket 消息失败:', error);
+                        console.error('处理WebSocket消息出错:', error);
                     }
                 };
 
-                // 连接关闭时的处理
-                ws.onclose = function (event) {
-                    console.log('WebSocket 连接已关闭:', event.code, event.reason);
-
-                    // 如果不是正常关闭（例如服务器重启或网络问题），尝试重新连接
-                    if (event.code !== 1000) {
-                        console.log('尝试重新连接 WebSocket...');
-                        setTimeout(initWebSocket, 3000); // 3秒后尝试重连
-                    }
+                ws.onopen = () => {
+                    console.log('WebSocket连接已建立');
                 };
 
-                // 连接错误处理
-                ws.onerror = function (error) {
-                    console.error('WebSocket 错误:', error);
+                ws.onclose = () => {
+                    console.log('WebSocket连接已关闭，将尝试重连...');
+                    setTimeout(initWebSocket, 3000);
                 };
-            }
 
-            // 动态更新文件列表
-            function updateFilesList() {
-                fetch('/api/files')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            renderFilesList(data.data);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('获取文件列表失败:', error);
-                    });
-            }
+                ws.onerror = (error) => {
+                    console.error('WebSocket 连接错误:', error);
+                };
+            };
 
-            // 渲染文件列表
-            function renderFilesList(files) {
-                const fileListContainer = document.querySelector('.file-list');
-
-                if (!files || files.length === 0) {
-                    fileListContainer.innerHTML = '<div class="alert alert-info">还没有共享的文件或文本，快来分享吧！</div>';
-                    return;
-                }
-
-                let html = '';
-                files.forEach(file => {
-                    html += generateFileItemHtml(file);
-                });
-
-                fileListContainer.innerHTML = html;
-
-                // 重新绑定删除按钮事件
-                bindDeleteButtons();
-            }
-
-            // 添加单个文件到列表
-            function addFileToList(file) {
-                const fileListContainer = document.querySelector('.file-list');
-                const emptyMessage = fileListContainer.querySelector('.alert.alert-info');
-
-                // 如果之前没有文件，现在有了，移除"没有文件"的提示
-                if (emptyMessage) {
-                    emptyMessage.remove();
-                }
-
-                // 创建新文件的 HTML
-                const fileHtml = generateFileItemHtml(file);
-
-                // 将新文件添加到列表顶部
-                if (fileListContainer.innerHTML.trim() === '') {
-                    fileListContainer.innerHTML = fileHtml;
-                } else {
-                    // 在文件列表的顶部添加新文件
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = fileHtml;
-                    const fileElement = tempDiv.firstElementChild;
-                    fileListContainer.insertBefore(fileElement, fileListContainer.firstChild);
-                }
-
-                // 绑定删除按钮事件
-                bindDeleteButtons();
-
-                // 显示添加动画效果
-                setTimeout(() => {
-                    const newFile = document.querySelector(`.file-item[data-id="${file.id}"]`);
-                    if (newFile) {
-                        newFile.classList.add('highlight-new');
-                        setTimeout(() => {
-                            newFile.classList.remove('highlight-new');
-                        }, 2000);
-                    }
-                }, 100);
-            }
-
-            // 从列表中移除文件
-            function removeFileFromList(fileId) {
-                const fileItem = document.querySelector(`.file-item[data-id="${fileId}"]`);
-                if (!fileItem) return;
-
-                // 添加删除动画
-                fileItem.classList.add('fade-out');
-
-                // 动画结束后移除元素
-                setTimeout(() => {
-                    fileItem.remove();
-
-                    // 如果没有文件了，显示提示
-                    if (document.querySelectorAll('.file-item').length === 0) {
-                        document.querySelector('.file-list').innerHTML =
-                            '<div class="alert alert-info">还没有共享的文件或文本，快来分享吧！</div>';
-                    }
-                }, 500); // 等待动画结束
-            }
-
-            // 生成文件项的 HTML
-            function generateFileItemHtml(file) {
-                // 根据不同类型生成不同的内容展示HTML
-                let contentHtml = '';
-
-                if (file.type === 'text') {
-                    if (file.contentType === 'markdown') {
-                        // 如果是Markdown类型，使用marked渲染内容
-                        contentHtml = `<div class="markdown-content">${marked.parse(file.content)}</div>`;
-                    } else {
-                        // 普通文本
-                        contentHtml = `<div class="text-content">${file.content}</div>`;
-                    }
-                }
-
-                return `
-                    <div class="file-item" data-id="${file.id}">
-                        <div class="d-flex justify-content-between align-items-top">
-                            <div>
-                                <h5>
-                                    ${file.type === 'file'
-                        ? `<a href="/download/${file.id}">${file.name}</a>`
-                        : `<span>${file.name}${file.contentType === 'markdown' ? ' (Markdown)' : ''}</span>`}
-                                </h5>
-                                <div class="timestamp">
-                                    分享者: ${file.username} | 
-                                    时间: ${new Date(file.uploadTime).toLocaleString()}
-                                </div>
-                            </div>
-                            <div>
-                                <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${file.id}">删除</button>
-                            </div>
-                        </div>
-                        ${contentHtml}
-                    </div>
-                `;
-            }
-
-            // 生成二维码
-            new QRCode(qrcodeContainer, {
-                text: serviceUrl,
-                width: 128,
-                height: 128,
-                colorDark: '#000',
-                colorLight: '#fff',
-                correctLevel: QRCode.CorrectLevel.H
-            });
-
-            // 获取可用的 IP 地址列表
-            fetch('/api/ip-addresses')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const ipSelect = document.getElementById('ip');
-                        ipSelect.innerHTML = '';
-
-                        data.addresses.forEach(address => {
-                            const option = document.createElement('option');
-                            option.value = address.address;
-                            option.textContent = `${address.address} (${address.name})`;
-                            option.selected = address.address === currentSettings.ip;
-                            ipSelect.appendChild(option);
-                        });
-                    }
-                });
-
-            // 绑定删除按钮事件
-            function bindDeleteButtons() {
-                document.querySelectorAll('.delete-btn').forEach(button => {
-                    button.addEventListener('click', handleDelete);
-                });
-            }
-
-            // 处理删除操作
-            async function handleDelete(e) {
-                const id = this.getAttribute('data-id');
-
-                if (confirm('确定要删除这个项目吗？')) {
-                    try {
-                        const response = await fetch(`/api/files/${id}`, {
-                            method: 'DELETE'
-                        });
-
-                        const result = await response.json();
-
-                        if (result.success) {
-                            toast.success('删除成功');
-
-                            // 在这里不需要手动更新 UI，WebSocket 会通知所有客户端更新
-                        } else {
-                            toast.error('删除失败: ' + result.message);
-                        }
-                    } catch (error) {
-                        console.error('删除出错:', error);
-                        toast.error('删除出错');
-                    }
-                }
-            }
-
-            // 初始绑定删除按钮
-            bindDeleteButtons();
-
-            // 文件预览功能
-            document.getElementById('fileInput').addEventListener('change', function (e) {
-                const file = this.files[0];
-                if (!file) {
-                    document.getElementById('filePreviewContainer').style.display = 'none';
-                    return;
-                }
-
-                // 显示预览容器
-                document.getElementById('filePreviewContainer').style.display = 'block';
-
-                // 隐藏所有预览项
-                document.querySelectorAll('.preview-item').forEach(item => {
-                    item.style.display = 'none';
-                });
-
-                // 根据文件类型显示不同的预览
-                const fileType = file.type;
-
-                if (fileType.startsWith('image/')) {
-                    // 图片预览
-                    const previewImage = document.getElementById('previewImage');
-                    previewImage.src = URL.createObjectURL(file);
-                    document.getElementById('imagePreview').style.display = 'block';
-                }
-                else if (fileType.startsWith('video/')) {
-                    // 视频预览
-                    const previewVideo = document.getElementById('previewVideo');
-                    previewVideo.src = URL.createObjectURL(file);
-                    document.getElementById('videoPreview').style.display = 'block';
-                }
-                else if (fileType.startsWith('audio/')) {
-                    // 音频预览
-                    const previewAudio = document.getElementById('previewAudio');
-                    previewAudio.src = URL.createObjectURL(file);
-                    document.getElementById('audioPreview').style.display = 'block';
-                }
-                else if (fileType === 'application/pdf') {
-                    // PDF提示
-                    document.getElementById('pdfPreview').style.display = 'block';
-                }
-                else if (fileType === 'text/plain' || fileType === 'text/html' || fileType === 'text/css' ||
-                    fileType === 'text/javascript' || fileType === 'application/json' ||
-                    file.name.endsWith('.md') || file.name.endsWith('.txt') ||
-                    file.name.endsWith('.js') || file.name.endsWith('.html') ||
-                    file.name.endsWith('.css') || file.name.endsWith('.json')) {
-                    // 文本文件预览
-                    const reader = new FileReader();
-                    reader.onload = function (e) {
-                        document.getElementById('previewText').textContent = e.target.result;
-                        document.getElementById('textPreview').style.display = 'block';
-                    };
-                    reader.readAsText(file);
-                }
-            });
-
-            // 文件上传表单提交
-            document.getElementById('fileUploadForm').addEventListener('submit', async function (e) {
-                e.preventDefault();
-                const fileInput = document.getElementById('fileInput');
-
-                if (!fileInput.files.length) {
-                    toast.warning('请选择要上传的文件');
-                    return;
-                }
-
-                const formData = new FormData();
-                formData.append('file', fileInput.files[0]);
+            // 处理文件上传
+            const handleFileUpload = async (event) => {
+                event.preventDefault();
+                const formData = new FormData(event.target);
 
                 try {
                     const response = await fetch('/api/upload', {
@@ -696,211 +466,296 @@
                     });
 
                     const result = await response.json();
-
                     if (result.success) {
                         toast.success('文件上传成功');
-
-                        // 清空文件输入框，便于继续上传
-                        fileInput.value = '';
-                        // 隐藏预览
-                        document.getElementById('filePreviewContainer').style.display = 'none';
+                        event.target.reset();
                     } else {
                         toast.error('上传失败: ' + result.message);
                     }
                 } catch (error) {
-                    console.error('上传出错:', error);
                     toast.error('上传出错');
                 }
-            });
+            };
 
-            // 文本分享表单提交
-            document.getElementById('textShareForm').addEventListener('submit', async function (e) {
-                e.preventDefault();
-                const messageInput = document.getElementById('messageInput');
-                const contentType = document.getElementById('contentType').value;
+            // 处理文本分享
+            const handleTextShare = async (event) => {
+                event.preventDefault();
+                const content = contentType === 'markdown'
+                    ? simplemdeRef.current.value()
+                    : document.getElementById('messageInput').value;
 
-                let content = '';
-                if (contentType === 'text') {
-                    content = messageInput.value.trim();
-                    if (!content) {
-                        toast.warning('请输入要分享的文本');
-                        return;
-                    }
-                } else if (contentType === 'markdown') {
-                    content = simplemde.value().trim();
-                    if (!content) {
-                        toast.warning('请输入要分享的 Markdown 内容');
-                        return;
-                    }
+                if (!content.trim()) {
+                    toast.warning(`请输入要分享的${contentType === 'markdown' ? 'Markdown' : '文本'}`);
+                    return;
                 }
 
                 try {
                     const response = await fetch('/api/text', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            message: content,
-                            contentType: contentType
-                        })
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: content, contentType })
                     });
 
                     const result = await response.json();
-
                     if (result.success) {
                         toast.success('内容分享成功');
-
-                        // 清空输入框，便于继续输入
-                        if (contentType === 'text') {
-                            messageInput.value = '';
-                        } else if (contentType === 'markdown') {
-                            simplemde.value('');
+                        if (contentType === 'markdown') {
+                            simplemdeRef.current.value('');
+                        } else {
+                            document.getElementById('messageInput').value = '';
                         }
                     } else {
                         toast.error('分享失败: ' + result.message);
                     }
                 } catch (error) {
-                    console.error('分享出错:', error);
                     toast.error('分享出错');
                 }
-            });
+            };
 
-            // 文本/Markdown切换
-            document.getElementById('textEditorBtn').addEventListener('change', function () {
-                document.getElementById('textEditorContainer').style.display = 'block';
-                document.getElementById('markdownEditorContainer').style.display = 'none';
-                document.getElementById('contentType').value = 'text';
-            });
+            // 处理文件删除
+            const handleDelete = async (id) => {
+                if (!confirm('确定要删除这个项目吗？')) return;
 
-            document.getElementById('markdownEditorBtn').addEventListener('change', function () {
-                document.getElementById('textEditorContainer').style.display = 'none';
-                document.getElementById('markdownEditorContainer').style.display = 'block';
-                document.getElementById('contentType').value = 'markdown';
-                // 刷新编辑器，确保渲染正确
-                setTimeout(() => {
-                    simplemde.codemirror.refresh();
-                }, 10);
-            });
+                try {
+                    const response = await fetch(`/api/files/${id}`, {
+                        method: 'DELETE'
+                    });
 
-            // 设置模态框
-            const settingsModal = new bootstrap.Modal(document.getElementById('settingsModal'));
+                    const result = await response.json();
+                    if (result.success) {
+                        toast.success('删除成功');
+                    } else {
+                        toast.error('删除失败: ' + result.message);
+                    }
+                } catch (error) {
+                    toast.error('删除出错');
+                }
+            };
 
-            document.getElementById('settingsBtn').addEventListener('click', function () {
-                settingsModal.show();
-            });
+            // 处理文本编辑
+            const handleEdit = async (id, content) => {
+                try {
+                    const response = await fetch(`/api/text/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ content })
+                    });
 
-            // 密码保护复选框切换
-            document.getElementById('authEnable').addEventListener('change', function () {
-                document.getElementById('passwordGroup').style.display = this.checked ? 'block' : 'none';
-            });
+                    const result = await response.json();
+                    if (result.success) {
+                        toast.success('编辑成功');
+                        // 更新本地文件列表
+                        setFiles(prev => prev.map(file =>
+                            file.id === id ? result.data : file
+                        ));
+                    } else {
+                        toast.error('编辑失败: ' + result.message);
+                    }
+                } catch (error) {
+                    toast.error('编辑出错');
+                }
+            };
 
-            // 保存设置
-            document.getElementById('saveSettingsBtn').addEventListener('click', async function () {
+            // 处理设置保存
+            const handleSaveSettings = async () => {
                 const form = document.getElementById('settingsForm');
                 const formData = new FormData(form);
-                const data = {};
+                const data = Object.fromEntries(formData);
 
-                formData.forEach((value, key) => {
-                    if (key === 'port' || key === 'chunkSize') {
-                        data[key] = parseInt(value);
-                    } else if (key === 'authEnable') {
-                        data[key] = value === 'on';
-                    } else {
-                        data[key] = value;
-                    }
-                });
-
-                // 处理未选中的复选框
-                if (!formData.has('authEnable')) {
-                    data.authEnable = false;
-                }
+                data.port = parseInt(data.port);
+                data.chunkSize = parseInt(data.chunkSize);
+                data.authEnable = formData.has('authEnable');
 
                 try {
                     const response = await fetch('/api/settings', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
                     });
 
                     const result = await response.json();
-
                     if (result.success) {
                         toast.success('设置已保存');
-                        settingsModal.hide();
+                        setShowSettings(false);
 
-                        // 检查服务器是否要求重新登录（启用了密码保护）
                         if (result.requireRelogin) {
                             toast.info('已启用密码保护，即将跳转到登录页面...');
-
-                            // 清除当前的 token cookie
-                            document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-
-                            // 延迟跳转到登录页，让用户有时间看到提示
-                            setTimeout(() => {
-                                window.location.href = '/login';
-                            }, 1500);
+                            setTimeout(() => window.location.href = '/login', 1500);
                         } else if (
-                            // 如果修改了端口或IP，需要重新加载页面
-                            data.port !== currentSettings.port ||
-                            data.ip !== currentSettings.ip
+                            data.port !== settings.port ||
+                            data.ip !== settings.ip
                         ) {
                             toast.info('IP或端口已修改，页面将重新加载...');
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1500);
+                            setTimeout(() => window.location.reload(), 1500);
                         }
                     } else {
                         toast.error('保存设置失败: ' + result.message);
                     }
                 } catch (error) {
-                    console.error('保存设置出错:', error);
                     toast.error('保存设置出错');
                 }
-            });
+            };
 
-            // 初始化 WebSocket 连接
-            initWebSocket();
+            return (
+                <div className="container mx-auto py-6 px-4">
+                    {/* 头部 */}
+                    <header className="flex justify-between items-center mb-6 pb-3 border-b border-gray-200">
+                        <h1 className="text-2xl font-bold text-gray-800"><%= title %></h1>
+                        <div className="flex items-center">
+                            <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm mr-3">
+                                {settings.ip}:{settings.port}
+                            </span>
+                            <button
+                                className="text-xl hover:bg-gray-100 w-8 h-8 flex items-center justify-center rounded-full transition"
+                                onClick={() => setShowSettings(true)}
+                                title="设置"
+                            >
+                                ⚙️
+                            </button>
+                        </div>
+                    </header>
 
-            // 添加动画样式
-            const style = document.createElement('style');
-            style.textContent = `
-                .highlight-new {
-                    animation: highlight 2s ease;
-                }
-                
-                @keyframes highlight {
-                    0% {
-                        background-color: #d4edda;
-                        transform: translateY(-10px);
-                    }
-                    50% {
-                        background-color: #d4edda;
-                    }
-                    100% {
-                        background-color: transparent;
-                    }
-                }
-                
-                .fade-out {
-                    animation: fadeOut 0.5s ease forwards;
-                }
-                
-                @keyframes fadeOut {
-                    0% {
-                        opacity: 1;
-                        transform: translateX(0);
-                    }
-                    100% {
-                        opacity: 0;
-                        transform: translateX(-10px);
-                    }
-                }
-            `;
-            document.head.appendChild(style);
-        });
+                    {/* 左右两栏布局 */}
+                    <div className="flex flex-col md:flex-row gap-6">
+                        {/* 左侧栏 - 上传区域 */}
+                        <div className={`md:w-1/3 lg:w-1/4 ${isMobile ? "" : "sticky top-4 self-start"}`}>
+                            <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                                <h2 className="text-lg font-semibold mb-3">上传文件</h2>
+                                <form onSubmit={handleFileUpload}>
+                                    <div className="mb-3">
+                                        <input
+                                            type="file"
+                                            name="file"
+                                            id="fileInput"
+                                            className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4
+                                            file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700
+                                            hover:file:bg-blue-100 cursor-pointer"
+                                        />
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-sm"
+                                    >
+                                        上传
+                                    </button>
+                                </form>
+                            </div>
+
+                            <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                                <h2 className="text-lg font-semibold mb-3">分享文本</h2>
+                                <form onSubmit={handleTextShare}>
+                                    <textarea
+                                        id="messageInput"
+                                        className="w-full border rounded p-2 mb-3 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                        rows={isMobile ? 2 : 3}
+                                        placeholder="输入要分享的文本..."
+                                    ></textarea>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-sm"
+                                    >
+                                        分享
+                                    </button>
+                                </form>
+                            </div>
+
+                            {/* 二维码 */}
+                            <div className="bg-white rounded-lg shadow-sm p-4 text-center">
+                                <div id="qrcode" className="flex justify-center mb-2"></div>
+                                <p className="text-sm text-gray-600">扫描二维码访问此文件共享服务</p>
+                            </div>
+                        </div>
+
+                        {/* 右侧栏 - 文件列表 */}
+                        <div className="md:w-2/3 lg:w-3/4">
+                            <FileList files={files} onDelete={handleDelete} onEdit={handleEdit} />
+                            <MembersList members={members} />
+                        </div>
+                    </div>
+
+                    {/* 设置模态框 */}
+                    <Modal show={showSettings} onHide={() => setShowSettings(false)}>
+                        <Modal.Header closeButton>
+                            <Modal.Title>服务设置</Modal.Title>
+                        </Modal.Header>
+                        <Modal.Body>
+                            <Form id="settingsForm">
+                                <Form.Group className="mb-3">
+                                    <Form.Label>上传路径</Form.Label>
+                                    <Form.Control
+                                        type="text"
+                                        name="uploadPath"
+                                        defaultValue={settings.uploadPath}
+                                    />
+                                </Form.Group>
+
+                                <Form.Group className="mb-3">
+                                    <Form.Label>端口号</Form.Label>
+                                    <Form.Control
+                                        type="number"
+                                        name="port"
+                                        defaultValue={settings.port}
+                                    />
+                                </Form.Group>
+
+                                <Form.Group className="mb-3">
+                                    <Form.Label>IP 地址</Form.Label>
+                                    <Form.Select
+                                        name="ip"
+                                        value={settings.ip}
+                                        onChange={(e) => setSettings({ ...settings, ip: e.target.value })}
+                                    >
+                                        {ipAddresses.map(ip => (
+                                            <option key={ip} value={ip}>{ip}</option>
+                                        ))}
+                                    </Form.Select>
+                                </Form.Group>
+
+                                <Form.Check
+                                    type="checkbox"
+                                    id="authEnable"
+                                    name="authEnable"
+                                    label="启用密码保护"
+                                    defaultChecked={settings.authEnable}
+                                    className="mb-3"
+                                />
+
+                                {settings.authEnable && (
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>访问密码</Form.Label>
+                                        <Form.Control
+                                            type="text"
+                                            name="password"
+                                            defaultValue={settings.password}
+                                        />
+                                    </Form.Group>
+                                )}
+
+                                <Form.Group className="mb-3">
+                                    <Form.Label>分片大小 (MB)</Form.Label>
+                                    <Form.Control
+                                        type="number"
+                                        name="chunkSize"
+                                        defaultValue={settings.chunkSize}
+                                    />
+                                </Form.Group>
+                            </Form>
+                        </Modal.Body>
+                        <Modal.Footer>
+                            <Button variant="secondary" onClick={() => setShowSettings(false)}>
+                                取消
+                            </Button>
+                            <Button variant="primary" onClick={handleSaveSettings}>
+                                保存设置
+                            </Button>
+                        </Modal.Footer>
+                    </Modal>
+                </div>
+            );
+        }
+
+        // 渲染应用
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
 </body>
 

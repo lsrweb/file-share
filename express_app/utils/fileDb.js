@@ -2,145 +2,134 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const database = require('./database');
+const fileUtil = require('./fileUtil');
 
-// 文件数据库的键名
-const FILE_DB_KEY = 'fileDb';
-
-/**
- * 生成唯一的文件ID
- * @param {string} name 文件名
- * @returns {string} 文件ID
- */
-function generateFileId(name) {
-    const timestamp = Date.now().toString();
-    const random = Math.random().toString();
-    const hash = crypto.createHash('md5').update(name + timestamp + random).digest('hex');
-    return hash.substring(0, 8);
+// 初始化数据库
+if (!database.getStorageItem('files')) {
+    database.setStorageItem('files', []);
 }
 
 /**
- * 获取文件数据库
- * @returns {Object} 文件数据库对象
+ * 生成随机ID
+ * @returns {string} 随机ID
  */
-function getFileDb() {
-    const fileDbStr = database.getStorageItem(FILE_DB_KEY, '{}');
-    return typeof fileDbStr === 'string' ? JSON.parse(fileDbStr) : fileDbStr;
+function generateId() {
+    return crypto.randomBytes(4).toString('hex');
 }
 
 /**
- * 保存文件数据库
- * @param {Object} fileDb 文件数据库对象
+ * 获取所有文件
+ * @returns {Array} 文件列表
  */
-function saveFileDb(fileDb) {
-    database.setStorageItem(FILE_DB_KEY, typeof fileDb === 'string' ? fileDb : JSON.stringify(fileDb));
-}
-
-/**
- * 添加文件到数据库
- * @param {Object} file 文件对象，包含 name、path、username 等属性
- * @returns {Object} 添加后的文件对象
- */
-function addFile(file) {
-    const fileDb = getFileDb();
-    const id = generateFileId(file.name);
-
-    const fileInfo = {
-        id,
-        name: file.name,
-        path: file.path,
-        username: file.username || 'anonymous',
-        type: 'file',
-        size: file.size || 0,
-        uploadTime: Date.now(),
-    };
-
-    fileDb[id] = fileInfo;
-    saveFileDb(fileDb);
-
-    return fileInfo;
-}
-
-/**
- * 添加文本到数据库
- * @param {string} text 文本内容
- * @param {string} username 用户名
- * @param {string} contentType 文本类型，可以是 'text' 或 'markdown'
- * @returns {Object} 添加后的文本对象
- */
-function addText(text, username = 'anonymous', contentType = 'text') {
-    const fileDb = getFileDb();
-    const id = generateFileId(text);
-
-    // 为 Markdown 内容创建更有意义的名称
-    let displayName = text.length > 20 ? text.substring(0, 20) + '...' : text;
-    if (contentType === 'markdown') {
-        // 尝试从 Markdown 中提取标题作为显示名称
-        const titleMatch = text.match(/^#\s+(.+)$/m);
-        if (titleMatch && titleMatch[1]) {
-            displayName = titleMatch[1];
-        } else {
-            displayName = 'Markdown 笔记';
-        }
-    }
-
-    const textInfo = {
-        id,
-        name: displayName,
-        type: 'text',
-        content: text,
-        contentType: contentType,  // 新增字段，表示文本的类型
-        username,
-        uploadTime: Date.now()
-    };
-
-    fileDb[id] = textInfo;
-    saveFileDb(fileDb);
-
-    return textInfo;
+function listFiles() {
+    return database.getStorageItem('files') || [];
 }
 
 /**
  * 获取指定ID的文件
  * @param {string} id 文件ID
- * @returns {Object|null} 文件对象，不存在则返回 null
+ * @returns {Object|null} 文件对象
  */
 function getFile(id) {
-    const fileDb = getFileDb();
-    return fileDb[id] || null;
+    const files = database.getStorageItem('files') || [];
+    return files.find(file => file.id === id) || null;
 }
 
 /**
- * 移除文件
- * @param {string|Object} file 文件ID或文件对象
- * @returns {boolean} 是否成功移除
+ * 添加文件
+ * @param {Object} file 文件对象
+ * @returns {Object} 添加的文件对象
  */
-function removeFile(file) {
-    const fileDb = getFileDb();
-    const id = typeof file === 'string' ? file : file.id;
+function addFile(file) {
+    const id = generateId();
+    const fileObj = {
+        ...file,
+        id,
+        uploadTime: Date.now(),
+        fileType: fileUtil.getFileType(file.name) // 自动识别文件类型
+    };
 
-    if (!fileDb[id]) {
-        return false;
+    const files = database.getStorageItem('files') || [];
+    files.unshift(fileObj);
+    database.setStorageItem('files', files);
+
+    return fileObj;
+}
+
+/**
+ * 添加文本
+ * @param {string} content 文本内容
+ * @param {string} username 用户名
+ * @param {string} contentType 内容类型 ('text' 或 'markdown')
+ * @returns {Object} 添加的文本对象
+ */
+function addText(content, username, contentType = 'text') {
+    const id = generateId();
+    const textObj = {
+        id,
+        name: content.length > 30 ? content.substring(0, 30) + '...' : content,
+        type: 'text',
+        contentType: contentType,
+        content,
+        username,
+        uploadTime: Date.now()
+    };
+
+    const files = database.getStorageItem('files') || [];
+    files.unshift(textObj);
+    database.setStorageItem('files', files);
+
+    return textObj;
+}
+
+/**
+ * 删除文件
+ * @param {string} id 文件ID
+ */
+function removeFile(id) {
+    let files = database.getStorageItem('files') || [];
+    files = files.filter(file => file.id !== id);
+    database.setStorageItem('files', files);
+}
+
+/**
+ * 更新文本内容
+ * @param {string} id 文本ID
+ * @param {string} content 新的文本内容
+ * @returns {Object} 更新后的文本对象
+ */
+function updateText(id, content) {
+    const files = database.getStorageItem('files') || [];
+    const fileIndex = files.findIndex(file => file.id === id);
+
+    if (fileIndex === -1) {
+        throw new Error('文本不存在');
     }
 
-    delete fileDb[id];
-    saveFileDb(fileDb);
+    const file = files[fileIndex];
+    if (file.type !== 'text') {
+        throw new Error('只能编辑文本类型');
+    }
 
-    return true;
-}
+    // 更新文本内容
+    const updatedFile = {
+        ...file,
+        content,
+        name: content.length > 30 ? content.substring(0, 30) + '...' : content,
+        updateTime: Date.now()  // 添加更新时间
+    };
 
-/**
- * 列出所有文件
- * @returns {Array} 文件对象数组
- */
-function listFiles() {
-    const fileDb = getFileDb();
-    return Object.values(fileDb).sort((a, b) => b.uploadTime - a.uploadTime);
+    files[fileIndex] = updatedFile;
+    database.setStorageItem('files', files);
+
+    return updatedFile;
 }
 
 module.exports = {
+    listFiles,
+    getFile,
     addFile,
     addText,
-    getFile,
     removeFile,
-    listFiles
+    updateText
 };

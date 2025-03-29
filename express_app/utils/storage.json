@@ -1,5 +1,15 @@
 {
-  "fileDb": "{\"4e43fc59\":{\"id\":\"4e43fc59\",\"name\":\"12312\",\"type\":\"text\",\"content\":\"12312\",\"username\":\"192.168.1.3\",\"uploadTime\":1743176710789},\"5cd04988\":{\"id\":\"5cd04988\",\"name\":\"123\",\"type\":\"text\",\"content\":\"123\",\"username\":\"192.168.1.3\",\"uploadTime\":1743177031082},\"3844834b\":{\"id\":\"3844834b\",\"name\":\"12\",\"type\":\"text\",\"content\":\"12\",\"username\":\"192.168.1.3\",\"uploadTime\":1743177032711},\"65b4fb48\":{\"id\":\"65b4fb48\",\"name\":\"123\",\"type\":\"text\",\"content\":\"123\",\"username\":\"192.168.1.3\",\"uploadTime\":1743177034377},\"4f2b61f8\":{\"id\":\"4f2b61f8\",\"name\":\"Snipaste_2025-03-08_09-24-19.png\",\"path\":\"C:\\\\Users\\\\29017\\\\Downloads\\\\Snipaste_2025-03-08_09-24-19.png\",\"username\":\"192.168.1.2\",\"type\":\"file\",\"size\":15940,\"uploadTime\":1743177197279},\"1c33e4e4\":{\"id\":\"1c33e4e4\",\"name\":\"123123\",\"type\":\"text\",\"content\":\"123123\",\"username\":\"192.168.1.3\",\"uploadTime\":1743177839299},\"6cc7f500\":{\"id\":\"6cc7f500\",\"name\":\"asdas\",\"type\":\"text\",\"content\":\"asdas\",\"username\":\"192.168.1.3\",\"uploadTime\":1743177846612},\"ec37135d\":{\"id\":\"ec37135d\",\"name\":\"asdas\",\"type\":\"text\",\"content\":\"asdas\",\"username\":\"192.168.1.3\",\"uploadTime\":1743177851190},\"1c4fce19\":{\"id\":\"1c4fce19\",\"name\":\"asdasd\",\"type\":\"text\",\"content\":\"asdasd\",\"username\":\"192.168.1.3\",\"uploadTime\":1743177855207},\"822bda5a\":{\"id\":\"822bda5a\",\"name\":\"Snipaste_2025-03-08_09-24-19 (1).png\",\"path\":\"C:\\\\Users\\\\29017\\\\Downloads\\\\Snipaste_2025-03-08_09-24-19 (1).png\",\"username\":\"192.168.1.3\",\"type\":\"file\",\"size\":15940,\"uploadTime\":1743177861787},\"ae2ea503\":{\"id\":\"ae2ea503\",\"name\":\"1231\",\"type\":\"text\",\"content\":\"1231\",\"username\":\"192.168.1.3\",\"uploadTime\":1743178012511},\"fc2782b7\":{\"id\":\"fc2782b7\",\"name\":\"Markdown 笔记\",\"type\":\"text\",\"content\":\"阿三大叔大叔大叔多\",\"contentType\":\"markdown\",\"username\":\"192.168.1.3\",\"uploadTime\":1743180980845},\"4a213df0\":{\"id\":\"4a213df0\",\"name\":\"Snipaste_2025-03-08_09-24-19 (1).png\",\"path\":\"C:\\\\Users\\\\29017\\\\Downloads\\\\Snipaste_2025-03-08_09-24-19 (1).png\",\"username\":\"192.168.1.3\",\"type\":\"file\",\"size\":15940,\"uploadTime\":1743180987794}}",
-  "authEnable": true,
-  "password": "123123"
+  "fileDb": "{}",
+  "files": [
+    {
+      "id": "8e703017",
+      "name": "复制我去粘贴(EGQgI5)",
+      "type": "text",
+      "contentType": "text",
+      "content": "复制我去粘贴(EGQgI5)",
+      "username": "192.168.31.128",
+      "uploadTime": 1743237784711
+    }
+  ],
+  "authEnable": false
 }

@@ -3,6 +3,7 @@ const path = require('path');
 
 // 存储文件的路径
 const storageFilePath = path.join(__dirname, 'storage.json');
+console.log(storageFilePath);
 
 // 初始化存储文件
 if (!fs.existsSync(storageFilePath)) {

@@ -7,27 +7,28 @@
     <title>
         <%= title %>
     </title>
-    <link href="/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- React 和 ReactDOM -->
+    <script src="/js/react/react.production.min.js"></script>
+    <script src="/js/react/react-dom.production.min.js"></script>
+
+    <!-- Babel -->
+    <script src="/js/react/babel.min.js"></script>
+
+    <!-- React Bootstrap -->
+    <link rel="stylesheet" href="/css/bootstrap5.min.css">
+    <script src="/js/react/react-bootstrap.min.js"></script>
+
+    <!-- Toast 样式 -->
     <link href="/css/toast.css" rel="stylesheet">
+
     <style>
-        body {
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #f5f5f5;
-        }
-
-        .login-form {
-            width: 100%;
+        .login-container {
             max-width: 400px;
-            padding: 30px;
-            background-color: #fff;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, .1);
+            margin: 100px auto;
         }
 
-        .login-header {
+        .login-title {
             text-align: center;
             margin-bottom: 30px;
         }
@@ -35,33 +36,19 @@
 </head>
 
 <body>
-    <div class="container">
-        <div class="login-form">
-            <div class="login-header">
-                <h1>文件共享系统</h1>
-                <p class="text-muted">请输入密码进入系统</p>
-            </div>
-
-            <form id="loginForm">
-                <div class="mb-3">
-                    <label for="password" class="form-label">密码</label>
-                    <input type="password" class="form-control" id="password" name="password" required>
-                </div>
-                <button type="submit" class="btn btn-primary w-100">登录</button>
-            </form>
-        </div>
-    </div>
+    <div id="root"></div>
 
     <script src="/js/toast.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const loginForm = document.getElementById('loginForm');
 
-            loginForm.addEventListener('submit', async function (e) {
-                e.preventDefault();
-                const password = document.getElementById('password').value;
+    <script type="text/babel">
+        const { Container, Card, Form, Button } = ReactBootstrap;
 
-                if (!password.trim()) {
+        function LoginPage() {
+            const handleSubmit = async (event) => {
+                event.preventDefault();
+                const password = event.target.password.value;
+
+                if (!password) {
                     toast.warning('请输入密码');
                     return;
                 }
@@ -76,26 +63,47 @@
                     });
 
                     const result = await response.json();
-
                     if (result.success) {
-                        // 保存令牌到 Cookie
-                        document.cookie = `token=${result.token}; path=/; max-age=86400`;
-
-                        toast.success('登录成功，正在跳转...');
-
-                        // 延迟跳转，让用户看到成功提示
-                        setTimeout(() => {
-                            window.location.href = '/';
-                        }, 1000);
+                        // 设置 cookie
+                        document.cookie = `token=${result.token}; path=/`;
+                        toast.success('登录成功');
+                        setTimeout(() => window.location.href = '/', 1000);
                     } else {
-                        toast.error(result.message || '密码错误');
+                        toast.error('登录失败：' + result.message);
                     }
                 } catch (error) {
-                    console.error('登录出错:', error);
-                    toast.error('服务器错误，请稍后再试');
+                    toast.error('登录出错');
                 }
-            });
-        });
+            };
+
+            return (
+                <Container className="login-container">
+                    <Card>
+                        <Card.Body>
+                            <h2 className="login-title">登录</h2>
+                            <Form onSubmit={handleSubmit}>
+                                <Form.Group className="mb-3">
+                                    <Form.Label>请输入访问密码</Form.Label>
+                                    <Form.Control
+                                        type="password"
+                                        name="password"
+                                        placeholder="输入访问密码..."
+                                        autoFocus
+                                    />
+                                </Form.Group>
+                                <div className="d-grid">
+                                    <Button variant="primary" type="submit">
+                                        登录
+                                    </Button>
+                                </div>
+                            </Form>
+                        </Card.Body>
+                    </Card>
+                </Container>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<LoginPage />);
     </script>
 </body>
 
