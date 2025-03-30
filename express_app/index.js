@@ -12,6 +12,7 @@ const WebSocket = require('ws');
 const { getIpAddress, getIpAddresses, getClientIp } = require('./utils/ipUtil');
 const fileDb = require('./utils/fileDb');
 const setting = require('./utils/setting');
+const memberDb = require('./utils/memberDb'); // 添加成员数据模块
 
 // 初始化 Express 应用
 const app = express();
@@ -94,8 +95,17 @@ wss.on('connection', (ws, req) => {
     // 添加新客户端到集合
     clients.add(ws);
 
+    // 更新成员数据库中的状态
+    memberDb.updateMemberStatus(clientIp, true);
+
     console.log(`WebSocket 客户端已连接，IP: ${clientIp}，当前连接数: ${clients.size}`);
     console.log(`当前在线成员: ${Array.from(connectedClients.values()).map(c => c.ip).join(', ')}`);
+
+    // 先向客户端发送其IP信息，确保客户端知道自己是谁
+    ws.send(JSON.stringify({
+        type: 'clientInfo',
+        data: { ip: clientIp }
+    }));
 
     // 发送当前文件列表
     ws.send(JSON.stringify({
@@ -118,6 +128,13 @@ wss.on('connection', (ws, req) => {
                 const clientInfo = connectedClients.get(ws);
                 if (clientInfo) {
                     clientInfo.name = data.name;
+                    
+                    // 同时更新成员数据库中的名称
+                    memberDb.updateMember({
+                        ip: clientInfo.ip,
+                        name: data.name
+                    });
+                    
                     // 广播成员列表更新
                     broadcastMembers();
                 }
@@ -127,8 +144,14 @@ wss.on('connection', (ws, req) => {
         }
     });
 
-    // 监听连接监听
+    // 监听连接断开
     ws.on('close', () => {
+        const clientInfo = connectedClients.get(ws);
+        if (clientInfo) {
+            // 更新成员状态为离线
+            memberDb.updateMemberStatus(clientInfo.ip, false);
+        }
+        
         clients.delete(ws);
         connectedClients.delete(ws);
         console.log(`WebSocket 客户端已断开，当前连接数: ${clients.size}`);
@@ -139,6 +162,12 @@ wss.on('connection', (ws, req) => {
 
     // 处理连接错误
     ws.on('error', (error) => {
+        const clientInfo = connectedClients.get(ws);
+        if (clientInfo) {
+            // 更新成员状态为离线
+            memberDb.updateMemberStatus(clientInfo.ip, false);
+        }
+        
         console.error('WebSocket 连接错误:', error);
         clients.delete(ws);
         connectedClients.delete(ws);
@@ -150,23 +179,53 @@ wss.on('connection', (ws, req) => {
 
 // 向所有客户端广播成员列表
 function broadcastMembers() {
-    // 提取要发送的成员信息
-    const members = Array.from(connectedClients.values()).map(client => ({
-        id: client.id,
-        ip: client.ip,
-        name: client.name || client.ip, // 如果没有名称，使用IP
-        connectTime: client.connectTime
-    }));
-
-    // 广播成员列表
-    broadcastMessage({
-        type: 'members',
-        data: members
+    // 获取所有成员（包括离线成员）
+    const allMembers = memberDb.getAllMembers();
+    
+    // 将在线客户端信息与持久化成员信息合并
+    const onlineIps = Array.from(connectedClients.values()).map(client => client.ip);
+    
+    // 添加当前连接时间等实时信息
+    const members = allMembers.map(member => {
+        const isCurrentlyOnline = onlineIps.includes(member.ip);
+        const connectedClient = Array.from(connectedClients.values())
+            .find(client => client.ip === member.ip);
+        
+        return {
+            id: member.id || crypto.createHash('md5').update(member.ip).digest('hex').substring(0, 8),
+            ip: member.ip,
+            name: member.name || member.ip,
+            isOnline: isCurrentlyOnline,
+            connectTime: connectedClient ? connectedClient.connectTime : null,
+            lastSeen: member.lastSeen,
+            lastDisconnectTime: member.lastDisconnectTime
+        };
     });
+
+    // 为每个客户端单独发送带有本机标记的成员列表
+    for (let [client, info] of connectedClients.entries()) {
+        if (client.readyState === WebSocket.OPEN) {
+            // 为当前客户端标记 isCurrentClient
+            const personalMembers = members.map(member => ({
+                ...member,
+                isCurrentClient: member.ip === info.ip
+            }));
+            
+            client.send(JSON.stringify({
+                type: 'members',
+                data: personalMembers
+            }));
+        }
+    }
 }
 
-// 向所有客户端广播消息
+// 更新原来的广播消息函数，不要对成员列表使用
 function broadcastMessage(message) {
+    if (message.type === 'members') {
+        // 成员列表已由 broadcastMembers 处理
+        return;
+    }
+    
     const data = JSON.stringify(message);
     clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
@@ -233,10 +292,23 @@ app.get('/', (req, res) => {
         chunkSize: 20
     };
 
+    // 获取客户端IP
+    const clientIp = getClientIp(req);
+    // 获取服务器IP
+    const serverIp = getIpAddress();
+    
+    // 判断是否为主服务端
+    const isMainServer = clientIp === serverIp || 
+                        clientIp === '127.0.0.1' || 
+                        clientIp === 'localhost' || 
+                        clientIp.includes('::1') ||
+                        clientIp.includes('::ffff:127.0.0.1');
+
     res.render('index', {
         title: '局域网共享',
         files: fileDb.listFiles(),
-        settings: { ...defaultSettings, ...setting.getSetting() }
+        settings: { ...defaultSettings, ...setting.getSetting() },
+        isMainServer: isMainServer // 传递给模板
     });
 });
 
@@ -400,12 +472,29 @@ app.get('/api/ip-addresses', (req, res) => {
 // 获取当前连接的成员列表
 app.get('/api/members', (req, res) => {
     try {
-        const members = Array.from(connectedClients.values()).map(client => ({
-            id: client.id,
-            ip: client.ip,
-            name: client.name || client.ip,
-            connectTime: client.connectTime
-        }));
+        // 获取所有成员（包括离线成员）
+        const allMembers = memberDb.getAllMembers();
+        
+        // 将在线客户端信息与持久化成员信息合并
+        const onlineIps = Array.from(connectedClients.values()).map(client => client.ip);
+        const clientIp = getClientIp(req);
+        
+        const members = allMembers.map(member => {
+            const isCurrentlyOnline = onlineIps.includes(member.ip);
+            const connectedClient = Array.from(connectedClients.values())
+                .find(client => client.ip === member.ip);
+            
+            return {
+                id: member.id || crypto.createHash('md5').update(member.ip).digest('hex').substring(0, 8),
+                ip: member.ip,
+                name: member.name || member.ip,
+                isOnline: isCurrentlyOnline,
+                connectTime: connectedClient ? connectedClient.connectTime : null,
+                lastSeen: member.lastSeen,
+                lastDisconnectTime: member.lastDisconnectTime,
+                isCurrentClient: member.ip === clientIp // 标记是否为本机
+            };
+        });
 
         res.json({
             success: true,
@@ -416,6 +505,46 @@ app.get('/api/members', (req, res) => {
         res.json({
             success: false,
             data: []
+        });
+    }
+});
+
+// 更新成员昵称
+app.post('/api/member/nickname', (req, res) => {
+    try {
+        const { nickname } = req.body;
+        const clientIp = getClientIp(req);
+        
+        if (!nickname || nickname.trim() === '') {
+            return res.status(400).json({ 
+                success: false, 
+                message: '昵称不能为空' 
+            });
+        }
+
+        // 更新昵称
+        const updatedMember = memberDb.setMemberNickname(clientIp, nickname);
+        
+        if (!updatedMember) {
+            return res.status(400).json({ 
+                success: false, 
+                message: '更新昵称失败' 
+            });
+        }
+        
+        // 广播成员列表更新
+        broadcastMembers();
+        
+        res.json({ 
+            success: true, 
+            message: '昵称已更新',
+            data: updatedMember
+        });
+    } catch (error) {
+        console.error('更新昵称失败:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: '服务器错误' 
         });
     }
 });

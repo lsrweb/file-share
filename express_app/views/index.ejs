@@ -33,6 +33,12 @@
         <!-- React 将在这里渲染应用 -->
     </div>
 
+    <!-- 文件列表区域可能对所有用户都可见 -->
+    <div class="file-list-container">
+        <!-- React 将在这里渲染文件列表 -->
+    </div>
+
+
     <!-- 必要的脚本 -->
     <script src="/js/qrcode.min.js"></script>
     <script src="/js/toast.js"></script>
@@ -262,33 +268,163 @@
 
         // 成员列表组件
         const MembersList = ({ members }) => {
+            const [editingNickname, setEditingNickname] = React.useState(false);
+            const [newNickname, setNewNickname] = React.useState('');
+            const [currentUser, setCurrentUser] = React.useState(null);
+            
+            // 计算在线成员数量
+            const onlineCount = members.filter(member => member.isOnline).length;
+            
+            // 找到本机用户
+            React.useEffect(() => {
+                const current = members.find(member => member.isCurrentClient);
+                if (current) {
+                    setCurrentUser(current);
+                    setNewNickname(current.name);
+                }
+            }, [members]);
+            
+            // 格式化时间函数，将时间戳转换为友好的格式
+            const formatTime = (timestamp) => {
+                if (!timestamp) return '未知';
+                
+                const date = new Date(timestamp);
+                const now = new Date();
+                const diffMs = now - date;
+                
+                // 小于1分钟显示"刚刚"
+                if (diffMs < 60000) return '刚刚';
+                
+                // 小于1小时显示分钟
+                if (diffMs < 3600000) return `${Math.floor(diffMs / 60000)} 分钟前`;
+                
+                // 小于24小时显示小时
+                if (diffMs < 86400000) return `${Math.floor(diffMs / 3600000)} 小时前`;
+                
+                // 显示日期和时间
+                return `${date.getMonth()+1}月${date.getDate()}日 ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+            };
+            
+            // 处理昵称更新
+            const handleUpdateNickname = async (e) => {
+                e.preventDefault();
+                
+                if (!newNickname || newNickname.trim() === '') {
+                    toast.warning('昵称不能为空');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/member/nickname', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ nickname: newNickname })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        toast.success('昵称已更新');
+                        setEditingNickname(false);
+                    } else {
+                        toast.error(`更新失败: ${result.message}`);
+                    }
+                } catch (error) {
+                    toast.error('更新昵称出错');
+                    console.error('更新昵称出错:', error);
+                }
+            };
+            
+            // 渲染成员项
+            const renderMemberItem = (member) => {
+                // 是否为本机
+                const isCurrentMember = member.isCurrentClient === true;
+                
+                return (
+                    <div key={member.id} className={`bg-gray-50 p-2 rounded ${isCurrentMember ? 'border-2 border-blue-300' : ''}`}>
+                        <div className="flex justify-between items-center">
+                            <div className="flex items-center">
+                                <span className={`w-2 h-2 rounded-full mr-2 ${member.isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                                <div>
+                                    {isCurrentMember ? (
+                                        editingNickname ? (
+                                            <form onSubmit={handleUpdateNickname} className="flex items-center">
+                                                <input
+                                                    type="text"
+                                                    value={newNickname}
+                                                    onChange={(e) => setNewNickname(e.target.value)}
+                                                    className="border rounded px-2 py-1 text-sm mr-2 w-32"
+                                                    autoFocus
+                                                />
+                                                <button 
+                                                    type="submit" 
+                                                    className="bg-blue-500 text-white text-xs rounded px-2 py-1"
+                                                >
+                                                    保存
+                                                </button>
+                                                <button 
+                                                    type="button" 
+                                                    className="bg-gray-300 text-gray-700 text-xs rounded px-2 py-1 ml-1"
+                                                    onClick={() => {
+                                                        setEditingNickname(false);
+                                                        setNewNickname(member.name);
+                                                    }}
+                                                >
+                                                    取消
+                                                </button>
+                                            </form>
+                                        ) : (
+                                            <div className="flex items-center">
+                                                <span className="font-medium">{member.name}</span>
+                                                <span className="bg-blue-100 text-blue-700 text-xs px-2 ml-2 rounded">本机</span>
+                                                <button 
+                                                    className="text-blue-500 text-xs ml-2 underline"
+                                                    onClick={() => setEditingNickname(true)}
+                                                >
+                                                    修改昵称
+                                                </button>
+                                            </div>
+                                        )
+                                    ) : (
+                                        <span className="font-medium">{member.name}</span>
+                                    )}
+                                    <span className="text-gray-500 text-sm ml-2">({member.ip})</span>
+                                </div>
+                            </div>
+                            <div>
+                                {member.isOnline ? (
+                                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                                        在线
+                                    </span>
+                                ) : (
+                                    <span className="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full">
+                                        离线 · {formatTime(member.lastDisconnectTime)}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+            
             return (
                 <div className="mt-6 bg-white rounded-lg shadow-sm p-4">
                     <div className="flex justify-between items-center mb-3">
-                        <span className="text-lg font-semibold">当前在线成员 ({members.length})</span>
+                        <span className="text-lg font-semibold">成员列表 ({members.length})</span>
                         <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                            {members.length} 人在线
+                            {onlineCount} 人在线
                         </span>
                     </div>
                     {members.length > 0 ? (
                         <div className="space-y-2">
-                            {members.map(member => (
-                                <div key={member.id} className="bg-gray-50 p-2 rounded">
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <span className="font-medium">{member.name}</span>
-                                            <span className="text-gray-500 text-sm ml-2">({member.ip})</span>
-                                        </div>
-                                        <span className="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full">
-                                            {new Date(member.connectTime).toLocaleTimeString()}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
+                            <div className="text-xs text-gray-500 mb-2">在线成员: {onlineCount}，总成员: {members.length}</div>
+                            {/* 先显示本机用户 */}
+                            {members.filter(m => m.isCurrentClient === true).map(renderMemberItem)}
+                            {/* 再显示其他用户 */}
+                            {members.filter(m => m.isCurrentClient !== true).map(renderMemberItem)}
                         </div>
                     ) : (
                         <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-2 rounded text-sm">
-                            暂无其他成员在线
+                            暂无成员记录
                         </div>
                     )}
                 </div>
@@ -312,6 +448,7 @@
             const [ipAddresses, setIpAddresses] = React.useState([]);
             const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
             const simplemdeRef = React.useRef(null);
+            const [currentClientIp, setCurrentClientIp] = React.useState(null);
 
             // 检测设备是否为移动设备
             React.useEffect(() => {
@@ -347,6 +484,15 @@
                     const response = await fetch('/api/members');
                     const result = await response.json();
                     if (result.success) {
+                        console.log('API获取的成员列表:', result.data);
+                        
+                        // 获取当前客户端
+                        const currentClient = (result.data || []).find(m => m.isCurrentClient);
+                        if (currentClient) {
+                            console.log('找到本机用户:', currentClient);
+                            setCurrentClientIp(currentClient.ip);
+                        }
+                        
                         setMembers(result.data || []);
                     }
                 } catch (error) {
@@ -414,6 +560,12 @@
                         console.log('收到WebSocket消息:', message);
 
                         switch (message.type) {
+                            // 处理客户端信息
+                            case 'clientInfo':
+                                console.log('收到客户端信息:', message.data);
+                                setCurrentClientIp(message.data.ip);
+                                break;
+                            
                             case 'files':
                                 setFiles(message.data);
                                 break;
@@ -430,7 +582,15 @@
                                 break;
                             case 'members':
                                 console.log('更新成员列表:', message.data);
-                                setMembers(message.data || []);
+                                // 确保使用本地存储的currentClientIp进行比较
+                                const updatedMembers = message.data.map(member => ({
+                                    ...member,
+                                    // 如果服务器已经标记了isCurrentClient，优先使用
+                                    // 否则根据IP进行匹配
+                                    isCurrentClient: member.isCurrentClient || member.ip === currentClientIp
+                                }));
+                                console.log('处理后的成员列表:', updatedMembers);
+                                setMembers(updatedMembers || []);
                                 break;
                             default:
                                 console.log('未知消息类型:', message.type);
@@ -605,13 +765,16 @@
                             <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm mr-3">
                                 {settings.ip}:{settings.port}
                             </span>
-                            <button
-                                className="text-xl hover:bg-gray-100 w-8 h-8 flex items-center justify-center rounded-full transition"
-                                onClick={() => setShowSettings(true)}
-                                title="设置"
-                            >
-                                ⚙️
-                            </button>
+                            {/* 仅在主服务端显示设置按钮 */}
+                            {<%= isMainServer %> && (
+                                <button
+                                    className="text-xl hover:bg-gray-100 w-8 h-8 flex items-center justify-center rounded-full transition"
+                                    onClick={() => setShowSettings(true)}
+                                    title="设置"
+                                >
+                                    ⚙️
+                                </button>
+                            )}
                         </div>
                     </header>
 
@@ -673,83 +836,85 @@
                         </div>
                     </div>
 
-                    {/* 设置模态框 */}
-                    <Modal show={showSettings} onHide={() => setShowSettings(false)}>
-                        <Modal.Header closeButton>
-                            <Modal.Title>服务设置</Modal.Title>
-                        </Modal.Header>
-                        <Modal.Body>
-                            <Form id="settingsForm">
-                                <Form.Group className="mb-3">
-                                    <Form.Label>上传路径</Form.Label>
-                                    <Form.Control
-                                        type="text"
-                                        name="uploadPath"
-                                        defaultValue={settings.uploadPath}
-                                    />
-                                </Form.Group>
-
-                                <Form.Group className="mb-3">
-                                    <Form.Label>端口号</Form.Label>
-                                    <Form.Control
-                                        type="number"
-                                        name="port"
-                                        defaultValue={settings.port}
-                                    />
-                                </Form.Group>
-
-                                <Form.Group className="mb-3">
-                                    <Form.Label>IP 地址</Form.Label>
-                                    <Form.Select
-                                        name="ip"
-                                        value={settings.ip}
-                                        onChange={(e) => setSettings({ ...settings, ip: e.target.value })}
-                                    >
-                                        {ipAddresses.map(ip => (
-                                            <option key={ip} value={ip}>{ip}</option>
-                                        ))}
-                                    </Form.Select>
-                                </Form.Group>
-
-                                <Form.Check
-                                    type="checkbox"
-                                    id="authEnable"
-                                    name="authEnable"
-                                    label="启用密码保护"
-                                    defaultChecked={settings.authEnable}
-                                    className="mb-3"
-                                />
-
-                                {settings.authEnable && (
+                    {/* 设置模态框 - 仅在主服务端有效 */}
+                    {<%= isMainServer %> && (
+                        <Modal show={showSettings} onHide={() => setShowSettings(false)}>
+                            <Modal.Header closeButton>
+                                <Modal.Title>服务设置</Modal.Title>
+                            </Modal.Header>
+                            <Modal.Body>
+                                <Form id="settingsForm">
                                     <Form.Group className="mb-3">
-                                        <Form.Label>访问密码</Form.Label>
+                                        <Form.Label>上传路径</Form.Label>
                                         <Form.Control
                                             type="text"
-                                            name="password"
-                                            defaultValue={settings.password}
+                                            name="uploadPath"
+                                            defaultValue={settings.uploadPath}
                                         />
                                     </Form.Group>
-                                )}
 
-                                <Form.Group className="mb-3">
-                                    <Form.Label>分片大小 (MB)</Form.Label>
-                                    <Form.Control
-                                        type="number"
-                                        name="chunkSize"
-                                        defaultValue={settings.chunkSize}
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>端口号</Form.Label>
+                                        <Form.Control
+                                            type="number"
+                                            name="port"
+                                            defaultValue={settings.port}
+                                        />
+                                    </Form.Group>
+
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>IP 地址</Form.Label>
+                                        <Form.Select
+                                            name="ip"
+                                            value={settings.ip}
+                                            onChange={(e) => setSettings({ ...settings, ip: e.target.value })}
+                                        >
+                                            {ipAddresses.map(ip => (
+                                                <option key={ip} value={ip}>{ip}</option>
+                                            ))}
+                                        </Form.Select>
+                                    </Form.Group>
+
+                                    <Form.Check
+                                        type="checkbox"
+                                        id="authEnable"
+                                        name="authEnable"
+                                        label="启用密码保护"
+                                        defaultChecked={settings.authEnable}
+                                        className="mb-3"
                                     />
-                                </Form.Group>
-                            </Form>
-                        </Modal.Body>
-                        <Modal.Footer>
-                            <Button variant="secondary" onClick={() => setShowSettings(false)}>
-                                取消
-                            </Button>
-                            <Button variant="primary" onClick={handleSaveSettings}>
-                                保存设置
-                            </Button>
-                        </Modal.Footer>
-                    </Modal>
+
+                                    {settings.authEnable && (
+                                        <Form.Group className="mb-3">
+                                            <Form.Label>访问密码</Form.Label>
+                                            <Form.Control
+                                                type="text"
+                                                name="password"
+                                                defaultValue={settings.password}
+                                            />
+                                        </Form.Group>
+                                    )}
+
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>分片大小 (MB)</Form.Label>
+                                        <Form.Control
+                                            type="number"
+                                            name="chunkSize"
+                                            defaultValue={settings.chunkSize}
+                                        />
+                                    </Form.Group>
+                                </Form>
+                            </Modal.Body>
+                            <Modal.Footer>
+                                <Button variant="secondary" onClick={() => setShowSettings(false)}>
+                                    取消
+                                </Button>
+                                <Button variant="primary" onClick={handleSaveSettings}>
+                                    保存设置
+                                </Button>
+                            </Modal.Footer>
+                        </Modal>
+                    )}
                 </div>
             );
         }
