@@ -7,6 +7,9 @@ const fs = require('fs');
 const crypto = require('crypto');
 const http = require('http');
 const WebSocket = require('ws');
+const os = require('os');
+const readline = require('readline'); // 添加readline模块用于命令行交互
+const chalk = require('chalk'); // 用于命令行彩色输出，如果未安装请执行 npm install chalk
 
 // 导入工具模块
 const { getIpAddress, getIpAddresses, getClientIp } = require('./utils/ipUtil');
@@ -128,13 +131,13 @@ wss.on('connection', (ws, req) => {
                 const clientInfo = connectedClients.get(ws);
                 if (clientInfo) {
                     clientInfo.name = data.name;
-                    
+
                     // 同时更新成员数据库中的名称
                     memberDb.updateMember({
                         ip: clientInfo.ip,
                         name: data.name
                     });
-                    
+
                     // 广播成员列表更新
                     broadcastMembers();
                 }
@@ -151,7 +154,7 @@ wss.on('connection', (ws, req) => {
             // 更新成员状态为离线
             memberDb.updateMemberStatus(clientInfo.ip, false);
         }
-        
+
         clients.delete(ws);
         connectedClients.delete(ws);
         console.log(`WebSocket 客户端已断开，当前连接数: ${clients.size}`);
@@ -167,7 +170,7 @@ wss.on('connection', (ws, req) => {
             // 更新成员状态为离线
             memberDb.updateMemberStatus(clientInfo.ip, false);
         }
-        
+
         console.error('WebSocket 连接错误:', error);
         clients.delete(ws);
         connectedClients.delete(ws);
@@ -181,16 +184,16 @@ wss.on('connection', (ws, req) => {
 function broadcastMembers() {
     // 获取所有成员（包括离线成员）
     const allMembers = memberDb.getAllMembers();
-    
+
     // 将在线客户端信息与持久化成员信息合并
     const onlineIps = Array.from(connectedClients.values()).map(client => client.ip);
-    
+
     // 添加当前连接时间等实时信息
     const members = allMembers.map(member => {
         const isCurrentlyOnline = onlineIps.includes(member.ip);
         const connectedClient = Array.from(connectedClients.values())
             .find(client => client.ip === member.ip);
-        
+
         return {
             id: member.id || crypto.createHash('md5').update(member.ip).digest('hex').substring(0, 8),
             ip: member.ip,
@@ -210,7 +213,7 @@ function broadcastMembers() {
                 ...member,
                 isCurrentClient: member.ip === info.ip
             }));
-            
+
             client.send(JSON.stringify({
                 type: 'members',
                 data: personalMembers
@@ -225,7 +228,7 @@ function broadcastMessage(message) {
         // 成员列表已由 broadcastMembers 处理
         return;
     }
-    
+
     const data = JSON.stringify(message);
     clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
@@ -296,13 +299,13 @@ app.get('/', (req, res) => {
     const clientIp = getClientIp(req);
     // 获取服务器IP
     const serverIp = getIpAddress();
-    
+
     // 判断是否为主服务端
-    const isMainServer = clientIp === serverIp || 
-                        clientIp === '127.0.0.1' || 
-                        clientIp === 'localhost' || 
-                        clientIp.includes('::1') ||
-                        clientIp.includes('::ffff:127.0.0.1');
+    const isMainServer = clientIp === serverIp ||
+        clientIp === '127.0.0.1' ||
+        clientIp === 'localhost' ||
+        clientIp.includes('::1') ||
+        clientIp.includes('::ffff:127.0.0.1');
 
     res.render('index', {
         title: '局域网共享',
@@ -474,16 +477,16 @@ app.get('/api/members', (req, res) => {
     try {
         // 获取所有成员（包括离线成员）
         const allMembers = memberDb.getAllMembers();
-        
+
         // 将在线客户端信息与持久化成员信息合并
         const onlineIps = Array.from(connectedClients.values()).map(client => client.ip);
         const clientIp = getClientIp(req);
-        
+
         const members = allMembers.map(member => {
             const isCurrentlyOnline = onlineIps.includes(member.ip);
             const connectedClient = Array.from(connectedClients.values())
                 .find(client => client.ip === member.ip);
-            
+
             return {
                 id: member.id || crypto.createHash('md5').update(member.ip).digest('hex').substring(0, 8),
                 ip: member.ip,
@@ -514,37 +517,37 @@ app.post('/api/member/nickname', (req, res) => {
     try {
         const { nickname } = req.body;
         const clientIp = getClientIp(req);
-        
+
         if (!nickname || nickname.trim() === '') {
-            return res.status(400).json({ 
-                success: false, 
-                message: '昵称不能为空' 
+            return res.status(400).json({
+                success: false,
+                message: '昵称不能为空'
             });
         }
 
         // 更新昵称
         const updatedMember = memberDb.setMemberNickname(clientIp, nickname);
-        
+
         if (!updatedMember) {
-            return res.status(400).json({ 
-                success: false, 
-                message: '更新昵称失败' 
+            return res.status(400).json({
+                success: false,
+                message: '更新昵称失败'
             });
         }
-        
+
         // 广播成员列表更新
         broadcastMembers();
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             message: '昵称已更新',
             data: updatedMember
         });
     } catch (error) {
         console.error('更新昵称失败:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: '服务器错误' 
+        res.status(500).json({
+            success: false,
+            message: '服务器错误'
         });
     }
 });
@@ -628,11 +631,140 @@ app.use((err, req, res, next) => {
     res.status(500).send('服务器内部错误');
 });
 
-// 初始化设置并启动服务器
+// 获取所有网络接口，优先排序本地局域网IP
+function getNetworkInterfaces() {
+    const interfaces = os.networkInterfaces();
+    const result = [];
+
+    for (const name in interfaces) {
+        for (const net of interfaces[name]) {
+            // 仅获取IPv4地址，排除内部环回地址
+            if (net.family === 'IPv4' && !net.internal) {
+                result.push({
+                    name,
+                    address: net.address,
+                    // 添加优先级属性：192.168开头的地址优先级最高
+                    priority: net.address.startsWith('192.168') ? 1 :
+                        (net.address.startsWith('10.') || net.address.startsWith('172.')) ? 2 : 3
+                });
+            }
+        }
+    }
+
+    // 按优先级排序结果
+    result.sort((a, b) => a.priority - b.priority);
+
+    return result;
+}
+
+// API: 获取网络接口列表
+app.get('/api/network-interfaces', (req, res) => {
+    try {
+        const interfaces = getNetworkInterfaces();
+        res.json({ success: true, data: interfaces });
+    } catch (error) {
+        console.error('获取网络接口失败:', error);
+        res.status(500).json({ success: false, message: '获取网络接口失败' });
+    }
+});
+
+// 交互式选择网卡并启动服务器
+async function selectNetworkInterfaceAndStartServer() {
+    try {
+        // 获取所有网络接口
+        const interfaces = getNetworkInterfaces();
+
+        if (interfaces.length === 0) {
+            console.log('警告: 未找到有效的网络接口，将使用 localhost');
+            startServer('localhost');
+            return;
+        }
+
+        console.log('========================================');
+        console.log('  请选择要使用的网卡:');
+        console.log('========================================');
+
+        // 显示网络接口列表
+        interfaces.forEach((iface, index) => {
+            const marker = index === 0 ? '→' : ' ';
+            console.log(`${marker} [${index + 1}] ${iface.name} - ${iface.address}`);
+        });
+
+        // 添加localhost选项
+        console.log(` [${interfaces.length + 1}] localhost - 127.0.0.1`);
+
+        console.log('----------------------------------------');
+        console.log('提示: 默认选择排名第一的网卡，按回车确认');
+        console.log('      或者输入编号选择其他网卡');
+        console.log('========================================');
+
+        // 创建readline接口
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
+
+        // 监听用户输入
+        rl.question('请输入要使用的网卡编号: ', (answer) => {
+            let selectedIndex = parseInt(answer) - 1;
+
+            // 验证输入的有效性
+            if (isNaN(selectedIndex) || selectedIndex < 0) {
+                selectedIndex = 0; // 默认选择第一个
+            }
+
+            let selectedAddress;
+            if (selectedIndex >= interfaces.length) {
+                selectedAddress = 'localhost';
+                console.log(`已选择: localhost (127.0.0.1)`);
+            } else {
+                const selected = interfaces[selectedIndex];
+                selectedAddress = selected.address;
+                console.log(`已选择: ${selected.name} - ${selected.address}`);
+            }
+
+            // 关闭readline接口
+            rl.close();
+
+            // 获取当前设置，只更新IP地址
+            const currentSettings = setting.getSetting();
+            const updatedSettings = {
+                ...currentSettings,
+                ip: selectedAddress
+            };
+
+            // 更新设置中的IP地址
+            setting.updateSetting(updatedSettings)
+                .then(() => {
+                    // 启动服务器
+                    startServer(selectedAddress);
+                })
+                .catch(err => {
+                    console.error('更新设置失败:', err);
+                    // 即使更新设置失败，仍然启动服务器
+                    startServer(selectedAddress);
+                });
+        });
+    } catch (error) {
+        console.error('选择网卡时出错:', error);
+        startServer('localhost'); // 出错时使用localhost
+    }
+}
+
+// 启动服务器
+function startServer(ipAddress) {
+    server.listen(port, '0.0.0.0', () => {
+        console.log(chalk.green('========================================'));
+        console.log(chalk.green(`  服务器已启动!`));
+        console.log(chalk.green('========================================'));
+        console.log(chalk.cyan(`访问地址: http://${ipAddress}:${port}`));
+        console.log(chalk.cyan(`本机地址: http://localhost:${port}`));
+        console.log(chalk.green('========================================'));
+    });
+}
+
+// 初始化设置
 setting.getSetting(); // 初始化设置
 
-// 使用 HTTP 服务器而不是直接使用 Express 监听
-server.listen(port, '0.0.0.0', () => {
-    const ipAddress = getIpAddress();
-    console.log(`服务器运行在 http://${ipAddress}:${port}`);
-});
+// 启动交互式网卡选择
+selectNetworkInterfaceAndStartServer();
