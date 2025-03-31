@@ -16,6 +16,7 @@ const { getIpAddress, getIpAddresses, getClientIp } = require('./utils/ipUtil');
 const fileDb = require('./utils/fileDb');
 const setting = require('./utils/setting');
 const memberDb = require('./utils/memberDb'); // 添加成员数据模块
+const previewUtil = require('./utils/previewUtil'); // 导入预览工具
 
 // 初始化 Express 应用
 const app = express();
@@ -768,3 +769,54 @@ setting.getSetting(); // 初始化设置
 
 // 启动交互式网卡选择
 selectNetworkInterfaceAndStartServer();
+
+// 文件预览路由
+app.get('/preview/:id', (req, res) => {
+    const fileId = req.params.id;
+
+    try {
+        // 获取文件信息
+        const file = fileDb.getFile(fileId);
+
+        if (!file) {
+            return res.status(404).send('文件不存在');
+        }
+
+        // 如果是文本类型的分享内容
+        if (file.type !== 'file') {
+            return res.render('preview', {
+                file,
+                previewType: 'text',
+                fileContent: file.content,
+                formatSize: previewUtil.formatFileSize
+            });
+        }
+
+        // 检查文件是否存在
+        if (!fs.existsSync(file.path)) {
+            fileDb.removeFile(file.id);
+            return res.status(404).send('文件不存在于磁盘');
+        }
+
+        // 构建完整的文件URL (用于Office文件预览)
+        const protocol = req.protocol;
+        const host = req.get('host');
+        const fileUrl = `${protocol}://${host}/download/${file.id}`;
+
+        // 获取预览信息
+        const previewInfo = previewUtil.getPreviewInfo(file);
+        file.mimeType = previewInfo.mimeType;
+
+        // 渲染预览页面
+        res.render('preview', {
+            file,
+            previewType: previewInfo.previewType,
+            fileContent: previewInfo.fileContent,
+            fileUrl,
+            formatSize: previewUtil.formatFileSize
+        });
+    } catch (err) {
+        console.error('文件预览出错:', err);
+        res.status(500).send('服务器错误');
+    }
+});

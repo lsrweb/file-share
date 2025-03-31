@@ -2,6 +2,16 @@
   "fileDb": "{}",
   "files": [
     {
+      "name": "laqun_json.doc",
+      "path": "C:\\Users\\Administrator\\Downloads\\laqun_json.doc",
+      "username": "192.168.31.12",
+      "type": "file",
+      "size": 10,
+      "uploadTime": 1743405939349,
+      "id": "febaae69",
+      "fileType": "other"
+    },
+    {
       "name": "Jz1kY4yicZCK.jpg",
       "path": "C:\\Users\\Administrator\\Downloads\\Jz1kY4yicZCK.jpg",
       "username": "192.168.31.128",
@@ -37,9 +47,9 @@
       "name": "主机",
       "firstSeen": 1743382813731,
       "isOnline": true,
-      "lastSeen": 1743404036510,
-      "lastConnectTime": 1743404036510,
-      "lastDisconnectTime": 1743403469498
+      "lastSeen": 1743406495118,
+      "lastConnectTime": 1743406495118,
+      "lastDisconnectTime": 1743406494798
     },
     "192.168.31.128": {
       "ip": "192.168.31.128",

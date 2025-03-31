@@ -51,7 +51,7 @@
         // 解构需要用到的 React Bootstrap 组件
         const {
             Container, Row, Col, Card, Form, Button,
-            Badge, Modal, Alert, ButtonGroup
+            Badge, Modal, Alert, ButtonGroup, Dropdown
         } = ReactBootstrap;
 
         // 防抖函数
@@ -158,12 +158,141 @@
             });
         };
 
+        // 自定义右键菜单组件
+        const ContextMenu = ({ show, x, y, options, onHide }) => {
+            if (!show) return null;
+
+            const menuStyle = {
+                position: 'fixed',
+                top: `${y}px`,
+                left: `${x}px`,
+                zIndex: 1050,
+                backgroundColor: 'white',
+                borderRadius: '4px',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                padding: '6px 0',
+                minWidth: '150px'
+            };
+
+            // 菜单点击后触发事件并隐藏菜单
+            const handleItemClick = (handler) => {
+                handler();
+                onHide();
+            };
+
+            return (
+                <>
+                    <div style={menuStyle} className="context-menu">
+                        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                            {options.map((option, index) => (
+                                <li
+                                    key={index}
+                                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                    onClick={() => handleItemClick(option.handler)}
+                                >
+                                    {option.label}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                    <div
+                        onClick={onHide}
+                        style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1040 }}
+                    />
+                </>
+            );
+        };
+
         // 文件项组件
         const FileItem = ({ file, onDelete, onEdit }) => {
             const [isEditing, setIsEditing] = React.useState(false);
             const [editContent, setEditContent] = React.useState(file.content || '');
             const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
             const deleteRef = React.useRef(null);
+
+            // 右键菜单状态
+            const [contextMenu, setContextMenu] = React.useState({
+                show: false,
+                x: 0,
+                y: 0,
+                options: []
+            });
+
+            // 处理右键菜单
+            const handleContextMenu = (e, fileType, contentType) => {
+                e.preventDefault();
+
+                // 根据文件类型定制菜单选项
+                let menuOptions = [];
+
+                if (file.type === 'file') {
+                    // 文件类型 - 提供预览和下载选项
+                    const downloadUrl = `/download/${file.id}`;
+                    const previewUrl = `/preview/${file.id}`;
+
+                    menuOptions = [
+                        {
+                            label: '预览',
+                            handler: () => {
+                                window.open(previewUrl, '_blank');
+                            }
+                        },
+                        {
+                            label: '保存',
+                            handler: () => {
+                                const link = document.createElement('a');
+                                link.href = downloadUrl;
+                                link.download = file.name;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                            }
+                        }
+                    ];
+                } else {
+                    // 文本类型 - 提供复制和预览选项
+                    const previewUrl = `/preview/${file.id}`;
+
+                    menuOptions = [
+                        {
+                            label: '复制',
+                            handler: () => {
+                                copyToClipboard(file.content);
+                                toast.success('已复制到剪贴板');
+                            }
+                        },
+                        {
+                            label: '预览',
+                            handler: () => {
+                                window.open(previewUrl, '_blank');
+                            }
+                        }
+                    ];
+                }
+
+                // 显示右键菜单
+                setContextMenu({
+                    show: true,
+                    x: e.clientX,
+                    y: e.clientY,
+                    options: menuOptions
+                });
+            };
+
+            // 复制文本到剪贴板函数
+            const copyToClipboard = (text) => {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+            };
+
+            // 隐藏右键菜单
+            const hideContextMenu = () => {
+                setContextMenu({ ...contextMenu, show: false });
+            };
 
             const handleEditSubmit = (e) => {
                 e.preventDefault();
@@ -181,6 +310,15 @@
 
             return (
                 <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 mb-4">
+                    {/* 右键菜单 */}
+                    <ContextMenu
+                        show={contextMenu.show}
+                        x={contextMenu.x}
+                        y={contextMenu.y}
+                        options={contextMenu.options}
+                        onHide={hideContextMenu}
+                    />
+
                     {/* 文件头部信息 - 在移动设备上垂直排列 */}
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
                         <div className="mb-2 sm:mb-0">
@@ -262,7 +400,10 @@
                     </div>
 
                     {file.type === 'file' ? (
-                        <FilePreview file={file} />
+                        // 文件类型 - 添加右键菜单事件
+                        <div onContextMenu={(e) => handleContextMenu(e, file.fileType)}>
+                            <FilePreview file={file} />
+                        </div>
                     ) : isEditing ? (
                         <form onSubmit={handleEditSubmit} className="mt-3">
                             <textarea
@@ -288,7 +429,11 @@
                             </div>
                         </form>
                     ) : (
-                        <div className={`mt-3 overflow-x-auto ${file.contentType === 'markdown' ? 'markdown-content' : 'whitespace-pre-wrap'}`}>
+                        // 文本类型 - 添加右键菜单事件
+                        <div
+                            className={`mt-3 overflow-x-auto ${file.contentType === 'markdown' ? 'markdown-content' : 'whitespace-pre-wrap'}`}
+                            onContextMenu={(e) => handleContextMenu(e, null, file.contentType)}
+                        >
                             {file.contentType === 'markdown' ? (
                                 <div dangerouslySetInnerHTML={{
                                     __html: marked.parse(file.content)
