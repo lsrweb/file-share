@@ -149,15 +149,34 @@
             }
         };
 
+        // 定义 highlightLinks 函数，用于检测并高亮链接
+        const highlightLinks = (text) => {
+            if (!text) return '';
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            return text.replace(urlRegex, (url) => {
+                return `<a href="${url}" target="_blank" class="text-blue-500 underline">${url}</a>`;
+            });
+        };
+
         // 文件项组件
         const FileItem = ({ file, onDelete, onEdit }) => {
             const [isEditing, setIsEditing] = React.useState(false);
             const [editContent, setEditContent] = React.useState(file.content || '');
+            const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+            const deleteRef = React.useRef(null);
 
             const handleEditSubmit = (e) => {
                 e.preventDefault();
                 onEdit(file.id, editContent);
                 setIsEditing(false);
+            };
+
+            // 格式化文件大小
+            const formatFileSize = (size) => {
+                if (size < 1024) return `${size} B`;
+                if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
+                if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+                return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
             };
 
             return (
@@ -183,6 +202,12 @@
                                         <span className="block sm:inline">更新于: {new Date(file.updateTime).toLocaleString()}</span>
                                     </>
                                 )}
+                                {file.size && (
+                                    <>
+                                        <span className="hidden sm:inline"> | </span>
+                                        <span className="block sm:inline">大小: {formatFileSize(file.size)}</span>
+                                    </>
+                                )}
                             </div>
                         </div>
                         <div className="flex mt-2 sm:mt-0">
@@ -194,12 +219,45 @@
                                     编辑
                                 </button>
                             )}
-                            <button
-                                className="px-3 py-1 border border-red-300 text-red-500 rounded text-sm hover:bg-red-50 transition"
-                                onClick={() => onDelete(file.id)}
-                            >
-                                删除
-                            </button>
+                            <div ref={deleteRef}>
+                                <button
+                                    className="px-3 py-1 border border-red-300 text-red-500 rounded text-sm hover:bg-red-50 transition"
+                                    onClick={() => setShowDeleteConfirm(true)}
+                                >
+                                    删除
+                                </button>
+                                <ReactBootstrap.Overlay
+                                    show={showDeleteConfirm}
+                                    target={deleteRef.current}
+                                    placement="top"
+                                    container={deleteRef.current}
+                                    containerPadding={20}
+                                >
+                                    <ReactBootstrap.Popover id="popover-contained" style={{ maxWidth: '200px', padding: '10px' }}>
+                                        <ReactBootstrap.Popover.Header as="h3" className="text-center bg-red-50 text-sm font-semibold">确认删除</ReactBootstrap.Popover.Header>
+                                        <ReactBootstrap.Popover.Body className="text-center text-sm">
+                                            <p className="mb-3">确定要删除这个项目吗？</p>
+                                            <div className="flex justify-center gap-2">
+                                                <button
+                                                    className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition"
+                                                    onClick={() => {
+                                                        onDelete(file.id);
+                                                        setShowDeleteConfirm(false);
+                                                    }}
+                                                >
+                                                    确定
+                                                </button>
+                                                <button
+                                                    className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300 transition"
+                                                    onClick={() => setShowDeleteConfirm(false)}
+                                                >
+                                                    取消
+                                                </button>
+                                            </div>
+                                        </ReactBootstrap.Popover.Body>
+                                    </ReactBootstrap.Popover>
+                                </ReactBootstrap.Overlay>
+                            </div>
                         </div>
                     </div>
 
@@ -236,7 +294,12 @@
                                     __html: marked.parse(file.content)
                                 }} />
                             ) : (
-                                file.content
+                                <div
+                                    className="whitespace-pre-wrap"
+                                    dangerouslySetInnerHTML={{
+                                        __html: highlightLinks(file.content)
+                                    }}
+                                ></div>
                             )}
                         </div>
                     )}
@@ -266,61 +329,72 @@
             );
         };
 
+        // 抽屉组件
+        const Drawer = ({ isOpen, onClose, children }) => {
+            return (
+                <>
+                    {/* 遮罩层 */}
+                    {isOpen && (
+                        <div
+                            className="fixed inset-0 bg-black bg-opacity-25 transition-opacity duration-300"
+                            onClick={onClose}
+                            style={{ zIndex: 999 }}
+                        />
+                    )}
+                    <div
+                        className={`fixed top-0 left-0 h-full bg-white shadow-xl transform transition-transform duration-300 ease-in-out divide-y divide-gray-100 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                        style={{ width: '320px', zIndex: 1000 }}
+                    >
+                        <div className="flex justify-between items-center p-4">
+                            <h2 className="text-lg font-semibold text-gray-800">成员列表</h2>
+                            <button
+                                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                onClick={onClose}
+                            >
+                                <span className="text-gray-500 text-lg">×</span>
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto overscroll-contain p-4" style={{ height: 'calc(100vh - 60px)' }}>
+                            {children}
+                        </div>
+                    </div>
+                </>
+            );
+        };
+
         // 成员列表组件
         const MembersList = ({ members }) => {
             const [editingNickname, setEditingNickname] = React.useState(false);
             const [newNickname, setNewNickname] = React.useState('');
-            const [currentUser, setCurrentUser] = React.useState(null);
-            
-            // 计算在线成员数量
-            const onlineCount = members.filter(member => member.isOnline).length;
-            
-            // 找到本机用户
-            React.useEffect(() => {
-                const current = members.find(member => member.isCurrentClient);
-                if (current) {
-                    setCurrentUser(current);
-                    setNewNickname(current.name);
-                }
-            }, [members]);
-            
-            // 格式化时间函数，将时间戳转换为友好的格式
+
+            // 格式化时间函数
             const formatTime = (timestamp) => {
                 if (!timestamp) return '未知';
-                
                 const date = new Date(timestamp);
                 const now = new Date();
-                const diffMs = now - date;
-                
-                // 小于1分钟显示"刚刚"
-                if (diffMs < 60000) return '刚刚';
-                
-                // 小于1小时显示分钟
-                if (diffMs < 3600000) return `${Math.floor(diffMs / 60000)} 分钟前`;
-                
-                // 小于24小时显示小时
-                if (diffMs < 86400000) return `${Math.floor(diffMs / 3600000)} 小时前`;
-                
-                // 显示日期和时间
-                return `${date.getMonth()+1}月${date.getDate()}日 ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+                const diff = Math.floor((now - date) / 1000); // 转换为秒
+
+                if (diff < 60) return '刚刚';
+                if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
+                if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
+                return date.toLocaleString();
             };
-            
+
             // 处理昵称更新
             const handleUpdateNickname = async (e) => {
                 e.preventDefault();
-                
                 if (!newNickname || newNickname.trim() === '') {
                     toast.warning('昵称不能为空');
                     return;
                 }
-                
+
                 try {
                     const response = await fetch('/api/member/nickname', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ nickname: newNickname })
                     });
-                    
+
                     const result = await response.json();
                     if (result.success) {
                         toast.success('昵称已更新');
@@ -333,100 +407,90 @@
                     console.error('更新昵称出错:', error);
                 }
             };
-            
-            // 渲染成员项
-            const renderMemberItem = (member) => {
-                // 是否为本机
-                const isCurrentMember = member.isCurrentClient === true;
-                
-                return (
-                    <div key={member.id} className={`bg-gray-50 p-2 rounded ${isCurrentMember ? 'border-2 border-blue-300' : ''}`}>
-                        <div className="flex justify-between items-center">
-                            <div className="flex items-center">
-                                <span className={`w-2 h-2 rounded-full mr-2 ${member.isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-                                <div>
-                                    {isCurrentMember ? (
-                                        editingNickname ? (
-                                            <form onSubmit={handleUpdateNickname} className="flex items-center">
-                                                <input
-                                                    type="text"
-                                                    value={newNickname}
-                                                    onChange={(e) => setNewNickname(e.target.value)}
-                                                    className="border rounded px-2 py-1 text-sm mr-2 w-32"
-                                                    autoFocus
-                                                />
-                                                <button 
-                                                    type="submit" 
-                                                    className="bg-blue-500 text-white text-xs rounded px-2 py-1"
-                                                >
-                                                    保存
-                                                </button>
-                                                <button 
-                                                    type="button" 
-                                                    className="bg-gray-300 text-gray-700 text-xs rounded px-2 py-1 ml-1"
-                                                    onClick={() => {
-                                                        setEditingNickname(false);
-                                                        setNewNickname(member.name);
-                                                    }}
-                                                >
-                                                    取消
-                                                </button>
-                                            </form>
-                                        ) : (
-                                            <div className="flex items-center">
-                                                <span className="font-medium">{member.name}</span>
-                                                <span className="bg-blue-100 text-blue-700 text-xs px-2 ml-2 rounded">本机</span>
-                                                <button 
-                                                    className="text-blue-500 text-xs ml-2 underline"
-                                                    onClick={() => setEditingNickname(true)}
-                                                >
-                                                    修改昵称
-                                                </button>
+
+            return (
+                <div className="space-y-3">
+                    <div className="text-sm text-gray-600 mb-2">在线成员: {members.filter(m => m.isOnline).length}，总成员: {members.length}</div>
+                    {members.map(member => (
+                        <div key={member.id} className="bg-gray-50 p-3 rounded-lg shadow-sm">
+                            <div className="flex justify-between items-start">
+                                <div className="flex items-start space-x-2 flex-grow min-w-0">
+                                    <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-2 ${member.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                    <div className="min-w-0 flex-grow">
+                                        <div className="flex items-center flex-wrap gap-2">
+                                            {member.isCurrentClient ? (
+                                                editingNickname ? (
+                                                    <form onSubmit={handleUpdateNickname} className="flex items-center gap-2 w-full">
+                                                        <div className="relative flex-grow">
+                                                            <input
+                                                                type="text"
+                                                                value={newNickname}
+                                                                onChange={(e) => setNewNickname(e.target.value)}
+                                                                className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-colors"
+                                                                autoFocus
+                                                                placeholder="输入新昵称..."
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <button
+                                                                type="submit"
+                                                                className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 transition-colors"
+                                                            >
+                                                                ✓
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1 transition-colors"
+                                                                onClick={() => {
+                                                                    setEditingNickname(false);
+                                                                    setNewNickname(member.name);
+                                                                }}
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                ) : (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-medium text-sm truncate">{member.name}</span>
+                                                        <span className="bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5 rounded">本机</span>
+                                                        <button
+                                                            className="inline-flex items-center px-2 py-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                                                            onClick={() => {
+                                                                setEditingNickname(true);
+                                                                setNewNickname(member.name);
+                                                            }}
+                                                        >
+                                                            <span className="mr-1">✎</span>
+                                                            修改昵称
+                                                        </button>
+                                                    </div>
+                                                )
+                                            ) : (
+                                                <span className="font-medium text-sm truncate">{member.name}</span>
+                                            )}
+                                        </div>
+                                        <div className="text-gray-500 text-xs mt-1">{member.ip}</div>
+                                        {!member.isOnline && (
+                                            <div className="text-gray-500 text-xs mt-1">
+                                                最后在线: {formatTime(member.lastDisconnectTime)}
                                             </div>
-                                        )
-                                    ) : (
-                                        <span className="font-medium">{member.name}</span>
-                                    )}
-                                    <span className="text-gray-500 text-sm ml-2">({member.ip})</span>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                            <div>
-                                {member.isOnline ? (
-                                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
-                                        在线
-                                    </span>
-                                ) : (
-                                    <span className="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full">
-                                        离线 · {formatTime(member.lastDisconnectTime)}
-                                    </span>
+                                {!editingNickname && (
+                                    <div className="flex-shrink-0">
+                                        <span className={`text-xs px-2 py-1 rounded-full ${member.isOnline
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-gray-100 text-gray-700'
+                                            }`}>
+                                            {member.isOnline ? '在线' : '离线'}
+                                        </span>
+                                    </div>
                                 )}
                             </div>
                         </div>
-                    </div>
-                );
-            };
-            
-            return (
-                <div className="mt-6 bg-white rounded-lg shadow-sm p-4">
-                    <div className="flex justify-between items-center mb-3">
-                        <span className="text-lg font-semibold">成员列表 ({members.length})</span>
-                        <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                            {onlineCount} 人在线
-                        </span>
-                    </div>
-                    {members.length > 0 ? (
-                        <div className="space-y-2">
-                            <div className="text-xs text-gray-500 mb-2">在线成员: {onlineCount}，总成员: {members.length}</div>
-                            {/* 先显示本机用户 */}
-                            {members.filter(m => m.isCurrentClient === true).map(renderMemberItem)}
-                            {/* 再显示其他用户 */}
-                            {members.filter(m => m.isCurrentClient !== true).map(renderMemberItem)}
-                        </div>
-                    ) : (
-                        <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-2 rounded text-sm">
-                            暂无成员记录
-                        </div>
-                    )}
+                    ))}
                 </div>
             );
         };
@@ -435,6 +499,7 @@
         function App() {
             const [files, setFiles] = React.useState([]);
             const [members, setMembers] = React.useState([]);
+            const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
             const [settings, setSettings] = React.useState({
                 ip: 'localhost',
                 port: 5421,
@@ -485,14 +550,14 @@
                     const result = await response.json();
                     if (result.success) {
                         console.log('API获取的成员列表:', result.data);
-                        
+
                         // 获取当前客户端
                         const currentClient = (result.data || []).find(m => m.isCurrentClient);
                         if (currentClient) {
                             console.log('找到本机用户:', currentClient);
                             setCurrentClientIp(currentClient.ip);
                         }
-                        
+
                         setMembers(result.data || []);
                     }
                 } catch (error) {
@@ -565,7 +630,7 @@
                                 console.log('收到客户端信息:', message.data);
                                 setCurrentClientIp(message.data.ip);
                                 break;
-                            
+
                             case 'files':
                                 setFiles(message.data);
                                 break;
@@ -674,8 +739,6 @@
 
             // 处理文件删除
             const handleDelete = async (id) => {
-                if (!confirm('确定要删除这个项目吗？')) return;
-
                 try {
                     const response = await fetch(`/api/files/${id}`, {
                         method: 'DELETE'
@@ -758,6 +821,20 @@
 
             return (
                 <div className="container mx-auto py-6 px-4">
+                    {/* 左侧抽屉按钮 */}
+                    <button
+                        className="fixed top-1/2 left-0 transform -translate-y-1/2 bg-blue-500 text-white p-2 rounded-r focus:outline-none hover:bg-blue-600"
+                        onClick={() => setIsDrawerOpen(true)}
+                        style={{ zIndex: 1100 }}
+                    >
+                        📋
+                    </button>
+
+                    {/* 抽屉组件 */}
+                    <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)}>
+                        <MembersList members={members} />
+                    </Drawer>
+
                     {/* 头部 */}
                     <header className="flex justify-between items-center mb-6 pb-3 border-b border-gray-200">
                         <h1 className="text-2xl font-bold text-gray-800"><%= title %></h1>
@@ -767,13 +844,13 @@
                             </span>
                             {/* 仅在主服务端显示设置按钮 */}
                             {<%= isMainServer %> && (
-                                <button
-                                    className="text-xl hover:bg-gray-100 w-8 h-8 flex items-center justify-center rounded-full transition"
-                                    onClick={() => setShowSettings(true)}
-                                    title="设置"
-                                >
-                                    ⚙️
-                                </button>
+                            <button
+                                className="text-xl hover:bg-gray-100 w-8 h-8 flex items-center justify-center rounded-full transition"
+                                onClick={() => setShowSettings(true)}
+                                title="设置"
+                            >
+                                ⚙️
+                            </button>
                             )}
                         </div>
                     </header>
@@ -832,88 +909,87 @@
                         {/* 右侧栏 - 文件列表 */}
                         <div className="md:w-2/3 lg:w-3/4">
                             <FileList files={files} onDelete={handleDelete} onEdit={handleEdit} />
-                            <MembersList members={members} />
                         </div>
                     </div>
 
                     {/* 设置模态框 - 仅在主服务端有效 */}
                     {<%= isMainServer %> && (
-                        <Modal show={showSettings} onHide={() => setShowSettings(false)}>
-                            <Modal.Header closeButton>
-                                <Modal.Title>服务设置</Modal.Title>
-                            </Modal.Header>
-                            <Modal.Body>
-                                <Form id="settingsForm">
+                    <Modal show={showSettings} onHide={() => setShowSettings(false)}>
+                        <Modal.Header closeButton>
+                            <Modal.Title>服务设置</Modal.Title>
+                        </Modal.Header>
+                        <Modal.Body>
+                            <Form id="settingsForm">
+                                <Form.Group className="mb-3">
+                                    <Form.Label>上传路径</Form.Label>
+                                    <Form.Control
+                                        type="text"
+                                        name="uploadPath"
+                                        defaultValue={settings.uploadPath}
+                                    />
+                                </Form.Group>
+
+                                <Form.Group className="mb-3">
+                                    <Form.Label>端口号</Form.Label>
+                                    <Form.Control
+                                        type="number"
+                                        name="port"
+                                        defaultValue={settings.port}
+                                    />
+                                </Form.Group>
+
+                                <Form.Group className="mb-3">
+                                    <Form.Label>IP 地址</Form.Label>
+                                    <Form.Select
+                                        name="ip"
+                                        value={settings.ip}
+                                        onChange={(e) => setSettings({ ...settings, ip: e.target.value })}
+                                    >
+                                        {ipAddresses.map(ip => (
+                                            <option key={ip} value={ip}>{ip}</option>
+                                        ))}
+                                    </Form.Select>
+                                </Form.Group>
+
+                                <Form.Check
+                                    type="checkbox"
+                                    id="authEnable"
+                                    name="authEnable"
+                                    label="启用密码保护"
+                                    defaultChecked={settings.authEnable}
+                                    className="mb-3"
+                                />
+
+                                {settings.authEnable && (
                                     <Form.Group className="mb-3">
-                                        <Form.Label>上传路径</Form.Label>
+                                        <Form.Label>访问密码</Form.Label>
                                         <Form.Control
                                             type="text"
-                                            name="uploadPath"
-                                            defaultValue={settings.uploadPath}
+                                            name="password"
+                                            defaultValue={settings.password}
                                         />
                                     </Form.Group>
+                                )}
 
-                                    <Form.Group className="mb-3">
-                                        <Form.Label>端口号</Form.Label>
-                                        <Form.Control
-                                            type="number"
-                                            name="port"
-                                            defaultValue={settings.port}
-                                        />
-                                    </Form.Group>
-
-                                    <Form.Group className="mb-3">
-                                        <Form.Label>IP 地址</Form.Label>
-                                        <Form.Select
-                                            name="ip"
-                                            value={settings.ip}
-                                            onChange={(e) => setSettings({ ...settings, ip: e.target.value })}
-                                        >
-                                            {ipAddresses.map(ip => (
-                                                <option key={ip} value={ip}>{ip}</option>
-                                            ))}
-                                        </Form.Select>
-                                    </Form.Group>
-
-                                    <Form.Check
-                                        type="checkbox"
-                                        id="authEnable"
-                                        name="authEnable"
-                                        label="启用密码保护"
-                                        defaultChecked={settings.authEnable}
-                                        className="mb-3"
+                                <Form.Group className="mb-3">
+                                    <Form.Label>分片大小 (MB)</Form.Label>
+                                    <Form.Control
+                                        type="number"
+                                        name="chunkSize"
+                                        defaultValue={settings.chunkSize}
                                     />
-
-                                    {settings.authEnable && (
-                                        <Form.Group className="mb-3">
-                                            <Form.Label>访问密码</Form.Label>
-                                            <Form.Control
-                                                type="text"
-                                                name="password"
-                                                defaultValue={settings.password}
-                                            />
-                                        </Form.Group>
-                                    )}
-
-                                    <Form.Group className="mb-3">
-                                        <Form.Label>分片大小 (MB)</Form.Label>
-                                        <Form.Control
-                                            type="number"
-                                            name="chunkSize"
-                                            defaultValue={settings.chunkSize}
-                                        />
-                                    </Form.Group>
-                                </Form>
-                            </Modal.Body>
-                            <Modal.Footer>
-                                <Button variant="secondary" onClick={() => setShowSettings(false)}>
-                                    取消
-                                </Button>
-                                <Button variant="primary" onClick={handleSaveSettings}>
-                                    保存设置
-                                </Button>
-                            </Modal.Footer>
-                        </Modal>
+                                </Form.Group>
+                            </Form>
+                        </Modal.Body>
+                        <Modal.Footer>
+                            <Button variant="secondary" onClick={() => setShowSettings(false)}>
+                                取消
+                            </Button>
+                            <Button variant="primary" onClick={handleSaveSettings}>
+                                保存设置
+                            </Button>
+                        </Modal.Footer>
+                    </Modal>
                     )}
                 </div>
             );

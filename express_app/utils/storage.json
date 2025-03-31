@@ -1,6 +1,17 @@
 {
   "fileDb": "{}",
-  "files": [],
+  "files": [
+    {
+      "name": "Jz1kY4yicZCK.jpg",
+      "path": "C:\\Users\\Administrator\\Downloads\\Jz1kY4yicZCK.jpg",
+      "username": "192.168.31.128",
+      "type": "file",
+      "size": 35138,
+      "uploadTime": 1743398574614,
+      "id": "81e11a52",
+      "fileType": "image"
+    }
+  ],
   "authEnable": false,
   "members": {
     "192.168.1.3": {
@@ -20,6 +31,24 @@
       "lastSeen": 1743316183908,
       "lastConnectTime": 1743316003095,
       "lastDisconnectTime": 1743316183908
+    },
+    "192.168.31.12": {
+      "ip": "192.168.31.12",
+      "name": "主机",
+      "firstSeen": 1743382813731,
+      "isOnline": true,
+      "lastSeen": 1743398513431,
+      "lastConnectTime": 1743398513431,
+      "lastDisconnectTime": 1743398513092
+    },
+    "192.168.31.128": {
+      "ip": "192.168.31.128",
+      "name": "19手机",
+      "firstSeen": 1743391170514,
+      "isOnline": true,
+      "lastSeen": 1743398524245,
+      "lastConnectTime": 1743398524245,
+      "lastDisconnectTime": 1743398312079
     }
   }
 }
