@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= title %>
+    </title>
+
+    <!-- React 和 ReactDOM -->
+    <script src="/js/react/react.production.min.js"></script>
+    <script src="/js/react/react-dom.production.min.js"></script>
+
+    <!-- Babel -->
+    <script src="/js/react/babel.min.js"></script>
+
+    <!-- React Bootstrap -->
+    <link rel="stylesheet" href="/css/bootstrap5.min.css">
+    <script src="/js/react/react-bootstrap.min.js"></script>
+
+    <!-- 其他依赖 -->
+    <link href="/css/toast.css" rel="stylesheet">
+    <link href="/css/simplemde.min.css" rel="stylesheet">
+    <link href="/css/github.min.css" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100">
+    <div id="root">
+        <!-- React 将在这里渲染应用 -->
+    </div>
+
+    <!-- 文件列表区域可能对所有用户都可见 -->
+    <div class="file-list-container">
+        <!-- React 将在这里渲染文件列表 -->
+    </div>
+
+
+    <!-- 必要的脚本 -->
+    <script src="/js/qrcode.min.js"></script>
+    <script src="/js/toast.js"></script>
+    <script src="/js/simplemde.min.js"></script>
+    <script src="/js/marked.min.js"></script>
+    <script src="/js/highlight.min.js"></script>
+
+    <!-- React 组件代码 -->
+    <script type="text/babel">
+        // 解构需要用到的 React Bootstrap 组件
+        const {
+            Container, Row, Col, Card, Form, Button,
+            Badge, Modal, Alert, ButtonGroup, Dropdown
+        } = ReactBootstrap;
+
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // 文件类型图标组件
+        const FileTypeBadge = ({ fileType, contentType }) => {
+            let badgeClass = "text-xs px-2 py-1 rounded-full ml-2";
+
+            if (contentType === 'markdown') {
+                return <span className={`${badgeClass} bg-purple-500 text-white`}>Markdown</span>;
+            }
+
+            switch (fileType) {
+                case 'image':
+                    return <span className={`${badgeClass} bg-green-500 text-white`}>图片</span>;
+                case 'video':
+                    return <span className={`${badgeClass} bg-red-500 text-white`}>视频</span>;
+                case 'audio':
+                    return <span className={`${badgeClass} bg-blue-400 text-white`}>音频</span>;
+                case 'pdf':
+                    return <span className={`${badgeClass} bg-orange-500 text-white`}>PDF</span>;
+                case 'text':
+                    return <span className={`${badgeClass} bg-gray-500 text-white`}>文本</span>;
+                default:
+                    return <span className={`${badgeClass} bg-gray-500 text-white`}>其他</span>;
+            }
+        };
+
+        // 文件预览组件
+        const FilePreview = ({ file }) => {
+            if (file.type !== 'file') return null;
+
+            const downloadUrl = `/download/${file.id}`;
+
+            switch (file.fileType) {
+                case 'image':
+                    return (
+                        <div className="mt-3">
+                            <img src={downloadUrl} className="max-w-full h-auto rounded" alt={file.name} />
+                        </div>
+                    );
+                case 'video':
+                    return (
+                        <div className="mt-3">
+                            <video
+                                src={downloadUrl}
+                                className="max-w-full rounded"
+                                controls
+                                preload="metadata"
+                            ></video>
+                        </div>
+                    );
+                case 'audio':
+                    return (
+                        <div className="mt-3">
+                            <audio
+                                src={downloadUrl}
+                                className="w-full"
+                                controls
+                            ></audio>
+                        </div>
+                    );
+                case 'pdf':
+                    return (
+                        <div className="mt-3">
+                            <iframe
+                                src={downloadUrl}
+                                className="w-full h-96 rounded border"
+                                title={file.name}
+                            ></iframe>
+                        </div>
+                    );
+                default:
+                    return (
+                        <div className="text-center mt-3">
+                            <a
+                                href={downloadUrl}
+                                className="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+                            >
+                                下载文件
+                            </a>
+                        </div>
+                    );
+            }
+        };
+
+        // 定义 highlightLinks 函数，用于检测并高亮链接
+        const highlightLinks = (text) => {
+            if (!text) return '';
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            return text.replace(urlRegex, (url) => {
+                return `<a href="${url}" target="_blank" class="text-blue-500 underline">${url}</a>`;
+            });
+        };
+
+        // 自定义右键菜单组件
+        const ContextMenu = ({ show, x, y, options, onHide }) => {
+            if (!show) return null;
+
+            const menuStyle = {
+                position: 'fixed',
+                top: `${y}px`,
+                left: `${x}px`,
+                zIndex: 1050,
+                backgroundColor: 'white',
+                borderRadius: '4px',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                padding: '6px 0',
+                minWidth: '150px'
+            };
+
+            // 菜单点击后触发事件并隐藏菜单
+            const handleItemClick = (handler) => {
+                handler();
+                onHide();
+            };
+
+            return (
+                <>
+                    <div style={menuStyle} className="context-menu">
+                        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                            {options.map((option, index) => (
+                                <li
+                                    key={index}
+                                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                    onClick={() => handleItemClick(option.handler)}
+                                >
+                                    {option.label}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                    <div
+                        onClick={onHide}
+                        style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1040 }}
+                    />
+                </>
+            );
+        };
+
+        // 文件项组件
+        const FileItem = ({ file, onDelete, onEdit }) => {
+            const [isEditing, setIsEditing] = React.useState(false);
+            const [editContent, setEditContent] = React.useState(file.content || '');
+            const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+            const deleteRef = React.useRef(null);
+
+            // 右键菜单状态
+            const [contextMenu, setContextMenu] = React.useState({
+                show: false,
+                x: 0,
+                y: 0,
+                options: []
+            });
+
+            // 处理右键菜单
+            const handleContextMenu = (e, fileType, contentType) => {
+                e.preventDefault();
+
+                // 根据文件类型定制菜单选项
+                let menuOptions = [];
+
+                if (file.type === 'file') {
+                    // 文件类型 - 提供预览和下载选项
+                    const downloadUrl = `/download/${file.id}`;
+                    const previewUrl = `/preview/${file.id}`;
+
+                    menuOptions = [
+                        {
+                            label: '预览',
+                            handler: () => {
+                                window.open(previewUrl, '_blank');
+                            }
+                        },
+                        {
+                            label: '保存',
+                            handler: () => {
+                                const link = document.createElement('a');
+                                link.href = downloadUrl;
+                                link.download = file.name;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                            }
+                        }
+                    ];
+                } else {
+                    // 文本类型 - 提供复制和预览选项
+                    const previewUrl = `/preview/${file.id}`;
+
+                    menuOptions = [
+                        {
+                            label: '复制',
+                            handler: () => {
+                                copyToClipboard(file.content);
+                                toast.success('已复制到剪贴板');
+                            }
+                        },
+                        {
+                            label: '预览',
+                            handler: () => {
+                                window.open(previewUrl, '_blank');
+                            }
+                        }
+                    ];
+                }
+
+                // 显示右键菜单
+                setContextMenu({
+                    show: true,
+                    x: e.clientX,
+                    y: e.clientY,
+                    options: menuOptions
+                });
+            };
+
+            // 复制文本到剪贴板函数
+            const copyToClipboard = (text) => {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+            };
+
+            // 隐藏右键菜单
+            const hideContextMenu = () => {
+                setContextMenu({ ...contextMenu, show: false });
+            };
+
+            const handleEditSubmit = (e) => {
+                e.preventDefault();
+                onEdit(file.id, editContent);
+                setIsEditing(false);
+            };
+
+            // 格式化文件大小
+            const formatFileSize = (size) => {
+                if (size < 1024) return `${size} B`;
+                if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
+                if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+                return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+            };
+
+            return (
+                <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 mb-4">
+                    {/* 右键菜单 */}
+                    <ContextMenu
+                        show={contextMenu.show}
+                        x={contextMenu.x}
+                        y={contextMenu.y}
+                        options={contextMenu.options}
+                        onHide={hideContextMenu}
+                    />
+
+                    {/* 文件头部信息 - 在移动设备上垂直排列 */}
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
+                        <div className="mb-2 sm:mb-0">
+                            <div className="flex flex-wrap items-center">
+                                <span className="font-semibold text-base break-all mr-2">{file.name}</span>
+                                {file.type === 'file' ? (
+                                    file.fileType && <FileTypeBadge fileType={file.fileType} />
+                                ) : (
+                                    <FileTypeBadge contentType={file.contentType} />
+                                )}
+                            </div>
+                            <div className="text-gray-500 text-xs sm:text-sm mt-1 break-words">
+                                <span className="block sm:inline">分享者: {file.username}</span>
+                                <span className="hidden sm:inline"> | </span>
+                                <span className="block sm:inline">时间: {new Date(file.uploadTime).toLocaleString()}</span>
+                                {file.updateTime && (
+                                    <>
+                                        <span className="hidden sm:inline"> | </span>
+                                        <span className="block sm:inline">更新于: {new Date(file.updateTime).toLocaleString()}</span>
+                                    </>
+                                )}
+                                {file.size && (
+                                    <>
+                                        <span className="hidden sm:inline"> | </span>
+                                        <span className="block sm:inline">大小: {formatFileSize(file.size)}</span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex mt-2 sm:mt-0">
+                            {file.type === 'text' && (
+                                <button
+                                    className="px-3 py-1 border border-blue-300 text-blue-500 rounded mr-2 text-sm hover:bg-blue-50 transition"
+                                    onClick={() => setIsEditing(true)}
+                                >
+                                    编辑
+                                </button>
+                            )}
+                            <div ref={deleteRef}>
+                                <button
+                                    className="px-3 py-1 border border-red-300 text-red-500 rounded text-sm hover:bg-red-50 transition"
+                                    onClick={() => setShowDeleteConfirm(true)}
+                                >
+                                    删除
+                                </button>
+                                <ReactBootstrap.Overlay
+                                    show={showDeleteConfirm}
+                                    target={deleteRef.current}
+                                    placement="top"
+                                    container={deleteRef.current}
+                                    containerPadding={20}
+                                >
+                                    <ReactBootstrap.Popover id="popover-contained" style={{ maxWidth: '200px', padding: '10px' }}>
+                                        <ReactBootstrap.Popover.Header as="h3" className="text-center bg-red-50 text-sm font-semibold">确认删除</ReactBootstrap.Popover.Header>
+                                        <ReactBootstrap.Popover.Body className="text-center text-sm">
+                                            <p className="mb-3">确定要删除这个项目吗？</p>
+                                            <div className="flex justify-center gap-2">
+                                                <button
+                                                    className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition"
+                                                    onClick={() => {
+                                                        onDelete(file.id);
+                                                        setShowDeleteConfirm(false);
+                                                    }}
+                                                >
+                                                    确定
+                                                </button>
+                                                <button
+                                                    className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300 transition"
+                                                    onClick={() => setShowDeleteConfirm(false)}
+                                                >
+                                                    取消
+                                                </button>
+                                            </div>
+                                        </ReactBootstrap.Popover.Body>
+                                    </ReactBootstrap.Popover>
+                                </ReactBootstrap.Overlay>
+                            </div>
+                        </div>
+                    </div>
+
+                    {file.type === 'file' ? (
+                        // 文件类型 - 添加右键菜单事件
+                        <div onContextMenu={(e) => handleContextMenu(e, file.fileType)}>
+                            <FilePreview file={file} />
+                        </div>
+                    ) : isEditing ? (
+                        <form onSubmit={handleEditSubmit} className="mt-3">
+                            <textarea
+                                className="w-full border rounded p-2"
+                                rows={5}
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                            />
+                            <div className="mt-2 flex justify-end">
+                                <button
+                                    type="submit"
+                                    className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition mr-2"
+                                >
+                                    保存
+                                </button>
+                                <button
+                                    type="button"
+                                    className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 transition"
+                                    onClick={() => setIsEditing(false)}
+                                >
+                                    取消
+                                </button>
+                            </div>
+                        </form>
+                    ) : (
+                        // 文本类型 - 添加右键菜单事件
+                        <div
+                            className={`mt-3 overflow-x-auto ${file.contentType === 'markdown' ? 'markdown-content' : 'whitespace-pre-wrap'}`}
+                            onContextMenu={(e) => handleContextMenu(e, null, file.contentType)}
+                        >
+                            {file.contentType === 'markdown' ? (
+                                <div dangerouslySetInnerHTML={{
+                                    __html: marked.parse(file.content)
+                                }} />
+                            ) : (
+                                <div
+                                    className="whitespace-pre-wrap"
+                                    dangerouslySetInnerHTML={{
+                                        __html: highlightLinks(file.content)
+                                    }}
+                                ></div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // 文件列表样式
+        const FileList = ({ files, onDelete, onEdit }) => {
+            return (
+                <div className="space-y-4">
+                    {files.length > 0 ? (
+                        files.map(file => (
+                            <FileItem
+                                key={file.id}
+                                file={file}
+                                onDelete={onDelete}
+                                onEdit={onEdit}
+                            />
+                        ))
+                    ) : (
+                        <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded">
+                            还没有共享的文件或文本，快来分享吧！
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // 抽屉组件
+        const Drawer = ({ isOpen, onClose, children }) => {
+            return (
+                <>
+                    {/* 遮罩层 */}
+                    {isOpen && (
+                        <div
+                            className="fixed inset-0 bg-black bg-opacity-25 transition-opacity duration-300"
+                            onClick={onClose}
+                            style={{ zIndex: 999 }}
+                        />
+                    )}
+                    <div
+                        className={`fixed top-0 left-0 h-full bg-white shadow-xl transform transition-transform duration-300 ease-in-out divide-y divide-gray-100 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                        style={{ width: '320px', zIndex: 1000 }}
+                    >
+                        <div className="flex justify-between items-center p-4">
+                            <h2 className="text-lg font-semibold text-gray-800">成员列表</h2>
+                            <button
+                                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                onClick={onClose}
+                            >
+                                <span className="text-gray-500 text-lg">×</span>
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto overscroll-contain p-4" style={{ height: 'calc(100vh - 60px)' }}>
+                            {children}
+                        </div>
+                    </div>
+                </>
+            );
+        };
+
+        // 成员列表组件
+        const MembersList = ({ members }) => {
+            const [editingNickname, setEditingNickname] = React.useState(false);
+            const [newNickname, setNewNickname] = React.useState('');
+
+            // 格式化时间函数
+            const formatTime = (timestamp) => {
+                if (!timestamp) return '未知';
+                const date = new Date(timestamp);
+                const now = new Date();
+                const diff = Math.floor((now - date) / 1000); // 转换为秒
+
+                if (diff < 60) return '刚刚';
+                if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
+                if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
+                return date.toLocaleString();
+            };
+
+            // 处理昵称更新
+            const handleUpdateNickname = async (e) => {
+                e.preventDefault();
+                if (!newNickname || newNickname.trim() === '') {
+                    toast.warning('昵称不能为空');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/member/nickname', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ nickname: newNickname })
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        toast.success('昵称已更新');
+                        setEditingNickname(false);
+                    } else {
+                        toast.error(`更新失败: ${result.message}`);
+                    }
+                } catch (error) {
+                    toast.error('更新昵称出错');
+                    console.error('更新昵称出错:', error);
+                }
+            };
+
+            return (
+                <div className="space-y-3">
+                    <div className="text-sm text-gray-600 mb-2">在线成员: {members.filter(m => m.isOnline).length}，总成员: {members.length}</div>
+                    {members.map(member => (
+                        <div key={member.id} className="bg-gray-50 p-3 rounded-lg shadow-sm">
+                            <div className="flex justify-between items-start">
+                                <div className="flex items-start space-x-2 flex-grow min-w-0">
+                                    <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-2 ${member.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                    <div className="min-w-0 flex-grow">
+                                        <div className="flex items-center flex-wrap gap-2">
+                                            {member.isCurrentClient ? (
+                                                editingNickname ? (
+                                                    <form onSubmit={handleUpdateNickname} className="flex items-center gap-2 w-full">
+                                                        <div className="relative flex-grow">
+                                                            <input
+                                                                type="text"
+                                                                value={newNickname}
+                                                                onChange={(e) => setNewNickname(e.target.value)}
+                                                                className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-colors"
+                                                                autoFocus
+                                                                placeholder="输入新昵称..."
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <button
+                                                                type="submit"
+                                                                className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 transition-colors"
+                                                            >
+                                                                ✓
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1 transition-colors"
+                                                                onClick={() => {
+                                                                    setEditingNickname(false);
+                                                                    setNewNickname(member.name);
+                                                                }}
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                ) : (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-medium text-sm truncate">{member.name}</span>
+                                                        <span className="bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5 rounded">本机</span>
+                                                        <button
+                                                            className="inline-flex items-center px-2 py-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                                                            onClick={() => {
+                                                                setEditingNickname(true);
+                                                                setNewNickname(member.name);
+                                                            }}
+                                                        >
+                                                            <span className="mr-1">✎</span>
+                                                            修改昵称
+                                                        </button>
+                                                    </div>
+                                                )
+                                            ) : (
+                                                <span className="font-medium text-sm truncate">{member.name}</span>
+                                            )}
+                                        </div>
+                                        <div className="text-gray-500 text-xs mt-1">{member.ip}</div>
+                                        {!member.isOnline && (
+                                            <div className="text-gray-500 text-xs mt-1">
+                                                最后在线: {formatTime(member.lastDisconnectTime)}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                {!editingNickname && (
+                                    <div className="flex-shrink-0">
+                                        <span className={`text-xs px-2 py-1 rounded-full ${member.isOnline
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-gray-100 text-gray-700'
+                                            }`}>
+                                            {member.isOnline ? '在线' : '离线'}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        // App 组件
+        function App() {
+            const [files, setFiles] = React.useState([]);
+            const [members, setMembers] = React.useState([]);
+            const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
+            const [settings, setSettings] = React.useState({
+                ip: 'localhost',
+                port: 5421,
+                uploadPath: '',
+                authEnable: false,
+                password: '',
+                chunkSize: 20
+            });
+            const [showSettings, setShowSettings] = React.useState(false);
+            const [contentType, setContentType] = React.useState('text');
+            const [ipAddresses, setIpAddresses] = React.useState([]);
+            const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+            const simplemdeRef = React.useRef(null);
+            const [currentClientIp, setCurrentClientIp] = React.useState(null);
+
+            // 检测设备是否为移动设备
+            React.useEffect(() => {
+                const handleResize = () => {
+                    setIsMobile(window.innerWidth < 768);
+                };
+
+                window.addEventListener('resize', handleResize);
+                return () => window.removeEventListener('resize', handleResize);
+            }, []);
+
+            // 获取IP地址列表
+            const fetchIpAddresses = async () => {
+                try {
+                    const response = await fetch('/api/ip-addresses');
+                    const result = await response.json();
+                    if (result.success && result.addresses) {
+                        setIpAddresses(result.addresses);
+                        // 如果当前settings中的IP不在地址列表中，使用第一个可用的IP
+                        if (!result.addresses.includes(settings.ip) && result.addresses.length > 0) {
+                            const newSettings = { ...settings, ip: result.addresses[0] };
+                            setSettings(newSettings);
+                        }
+                    }
+                } catch (error) {
+                    console.error('获取IP地址失败:', error);
+                }
+            };
+
+            // 获取成员列表
+            const fetchMembers = async () => {
+                try {
+                    const response = await fetch('/api/members');
+                    const result = await response.json();
+                    if (result.success) {
+                        console.log('API获取的成员列表:', result.data);
+
+                        // 获取当前客户端
+                        const currentClient = (result.data || []).find(m => m.isCurrentClient);
+                        if (currentClient) {
+                            console.log('找到本机用户:', currentClient);
+                            setCurrentClientIp(currentClient.ip);
+                        }
+
+                        setMembers(result.data || []);
+                    }
+                } catch (error) {
+                    console.error('获取成员列表失败:', error);
+                }
+            };
+
+            React.useEffect(() => {
+                // 初始化时获取IP地址列表
+                fetchIpAddresses();
+
+                // 初始化时获取成员列表
+                fetchMembers();
+
+                // 初始化 Markdown 编辑器
+                if (!simplemdeRef.current && document.getElementById("markdownEditor")) {
+                    simplemdeRef.current = new SimpleMDE({
+                        element: document.getElementById("markdownEditor"),
+                        toolbar: ["bold", "italic", "heading", "|", "quote", "code",
+                            "unordered-list", "ordered-list", "|", "link",
+                            "image", "table", "|", "preview"],
+                        placeholder: "输入 Markdown 格式的文本...",
+                        spellChecker: false,
+                        autosave: {
+                            enabled: true,
+                            uniqueId: "markdownEditor",
+                            delay: 1000,
+                        },
+                    });
+                }
+
+                // 初始化 QR Code
+                try {
+                    const qrcodeElement = document.getElementById('qrcode');
+                    if (qrcodeElement) {
+                        qrcodeElement.innerHTML = ''; // 清除旧的二维码
+                        new QRCode(qrcodeElement, {
+                            text: `http://${settings.ip}:${settings.port}`,
+                            width: 128,
+                            height: 128,
+                            colorDark: '#000',
+                            colorLight: '#fff',
+                            correctLevel: QRCode.CorrectLevel.H
+                        });
+                    }
+                } catch (error) {
+                    console.error('QR Code initialization failed:', error);
+                }
+
+                // 初始化 WebSocket 连接
+                initWebSocket();
+            }, [settings.ip, settings.port]); // 当IP或端口变化时重新初始化
+
+            // WebSocket 初始化
+            const initWebSocket = () => {
+                if (!settings || !settings.ip || !settings.port) return;
+
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const host = window.location.hostname;
+                const ws = new WebSocket(`${protocol}//${host}:${settings.port}`);
+
+                ws.onmessage = (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        console.log('收到WebSocket消息:', message);
+
+                        switch (message.type) {
+                            // 处理客户端信息
+                            case 'clientInfo':
+                                console.log('收到客户端信息:', message.data);
+                                setCurrentClientIp(message.data.ip);
+                                break;
+
+                            case 'files':
+                                setFiles(message.data);
+                                break;
+                            case 'fileAdded':
+                                setFiles(prev => [message.data, ...prev]);
+                                break;
+                            case 'fileRemoved':
+                                setFiles(prev => prev.filter(f => f.id !== message.data));
+                                break;
+                            case 'fileUpdated':
+                                setFiles(prev => prev.map(file =>
+                                    file.id === message.data.id ? message.data : file
+                                ));
+                                break;
+                            case 'members':
+                                console.log('更新成员列表:', message.data);
+                                // 确保使用本地存储的currentClientIp进行比较
+                                const updatedMembers = message.data.map(member => ({
+                                    ...member,
+                                    // 如果服务器已经标记了isCurrentClient，优先使用
+                                    // 否则根据IP进行匹配
+                                    isCurrentClient: member.isCurrentClient || member.ip === currentClientIp
+                                }));
+                                console.log('处理后的成员列表:', updatedMembers);
+                                setMembers(updatedMembers || []);
+                                break;
+                            default:
+                                console.log('未知消息类型:', message.type);
+                        }
+                    } catch (error) {
+                        console.error('处理WebSocket消息出错:', error);
+                    }
+                };
+
+                ws.onopen = () => {
+                    console.log('WebSocket连接已建立');
+                };
+
+                ws.onclose = () => {
+                    console.log('WebSocket连接已关闭，将尝试重连...');
+                    setTimeout(initWebSocket, 3000);
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket 连接错误:', error);
+                };
+            };
+
+            // 处理文件上传
+            const handleFileUpload = async (event) => {
+                event.preventDefault();
+                const formData = new FormData(event.target);
+
+                try {
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        toast.success('文件上传成功');
+                        event.target.reset();
+                    } else {
+                        toast.error('上传失败: ' + result.message);
+                    }
+                } catch (error) {
+                    toast.error('上传出错');
+                }
+            };
+
+            // 处理文本分享
+            const handleTextShare = async (event) => {
+                event.preventDefault();
+                const content = contentType === 'markdown'
+                    ? simplemdeRef.current.value()
+                    : document.getElementById('messageInput').value;
+
+                if (!content.trim()) {
+                    toast.warning(`请输入要分享的${contentType === 'markdown' ? 'Markdown' : '文本'}`);
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/text', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: content, contentType })
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        toast.success('内容分享成功');
+                        if (contentType === 'markdown') {
+                            simplemdeRef.current.value('');
+                        } else {
+                            document.getElementById('messageInput').value = '';
+                        }
+                    } else {
+                        toast.error('分享失败: ' + result.message);
+                    }
+                } catch (error) {
+                    toast.error('分享出错');
+                }
+            };
+
+            // 处理文件删除
+            const handleDelete = async (id) => {
+                try {
+                    const response = await fetch(`/api/files/${id}`, {
+                        method: 'DELETE'
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        toast.success('删除成功');
+                    } else {
+                        toast.error('删除失败: ' + result.message);
+                    }
+                } catch (error) {
+                    toast.error('删除出错');
+                }
+            };
+
+            // 处理文本编辑
+            const handleEdit = async (id, content) => {
+                try {
+                    const response = await fetch(`/api/text/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ content })
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        toast.success('编辑成功');
+                        // 更新本地文件列表
+                        setFiles(prev => prev.map(file =>
+                            file.id === id ? result.data : file
+                        ));
+                    } else {
+                        toast.error('编辑失败: ' + result.message);
+                    }
+                } catch (error) {
+                    toast.error('编辑出错');
+                }
+            };
+
+            // 处理设置保存
+            const handleSaveSettings = async () => {
+                const form = document.getElementById('settingsForm');
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData);
+
+                data.port = parseInt(data.port);
+                data.chunkSize = parseInt(data.chunkSize);
+                data.authEnable = formData.has('authEnable');
+
+                try {
+                    const response = await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        toast.success('设置已保存');
+                        setShowSettings(false);
+
+                        if (result.requireRelogin) {
+                            toast.info('已启用密码保护，即将跳转到登录页面...');
+                            setTimeout(() => window.location.href = '/login', 1500);
+                        } else if (
+                            data.port !== settings.port ||
+                            data.ip !== settings.ip
+                        ) {
+                            toast.info('IP或端口已修改，页面将重新加载...');
+                            setTimeout(() => window.location.reload(), 1500);
+                        }
+                    } else {
+                        toast.error('保存设置失败: ' + result.message);
+                    }
+                } catch (error) {
+                    toast.error('保存设置出错');
+                }
+            };
+
+            return (
+                <div className="container mx-auto py-6 px-4">
+                    {/* 左侧抽屉按钮 */}
+                    <button
+                        className="fixed top-1/2 left-0 transform -translate-y-1/2 bg-blue-500 text-white p-2 rounded-r focus:outline-none hover:bg-blue-600"
+                        onClick={() => setIsDrawerOpen(true)}
+                        style={{ zIndex: 1100 }}
+                    >
+                        📋
+                    </button>
+
+                    {/* 抽屉组件 */}
+                    <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)}>
+                        <MembersList members={members} />
+                    </Drawer>
+
+                    {/* 头部 */}
+                    <header className="flex justify-between items-center mb-6 pb-3 border-b border-gray-200">
+                        <h1 className="text-2xl font-bold text-gray-800"><%= title %></h1>
+                        <div className="flex items-center">
+                            <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm mr-3">
+                                {settings.ip}:{settings.port}
+                            </span>
+                            {/* 仅在主服务端显示设置按钮 */}
+                            {<%= isMainServer %> && (
+                            <button
+                                className="text-xl hover:bg-gray-100 w-8 h-8 flex items-center justify-center rounded-full transition"
+                                onClick={() => setShowSettings(true)}
+                                title="设置"
+                            >
+                                ⚙️
+                            </button>
+                            )}
+                        </div>
+                    </header>
+
+                    {/* 左右两栏布局 */}
+                    <div className="flex flex-col md:flex-row gap-6">
+                        {/* 左侧栏 - 上传区域 */}
+                        <div className={`md:w-1/3 lg:w-1/4 ${isMobile ? "" : "sticky top-4 self-start"}`}>
+                            <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                                <h2 className="text-lg font-semibold mb-3">上传文件</h2>
+                                <form onSubmit={handleFileUpload}>
+                                    <div className="mb-3">
+                                        <input
+                                            type="file"
+                                            name="file"
+                                            id="fileInput"
+                                            className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4
+                                            file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700
+                                            hover:file:bg-blue-100 cursor-pointer"
+                                        />
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-sm"
+                                    >
+                                        上传
+                                    </button>
+                                </form>
+                            </div>
+
+                            <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                                <h2 className="text-lg font-semibold mb-3">分享文本</h2>
+                                <form onSubmit={handleTextShare}>
+                                    <textarea
+                                        id="messageInput"
+                                        className="w-full border rounded p-2 mb-3 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                        rows={isMobile ? 2 : 3}
+                                        placeholder="输入要分享的文本..."
+                                    ></textarea>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-sm"
+                                    >
+                                        分享
+                                    </button>
+                                </form>
+                            </div>
+
+                            {/* 二维码 */}
+                            <div className="bg-white rounded-lg shadow-sm p-4 text-center">
+                                <div id="qrcode" className="flex justify-center mb-2"></div>
+                                <p className="text-sm text-gray-600">扫描二维码访问此文件共享服务</p>
+                            </div>
+                        </div>
+
+                        {/* 右侧栏 - 文件列表 */}
+                        <div className="md:w-2/3 lg:w-3/4">
+                            <FileList files={files} onDelete={handleDelete} onEdit={handleEdit} />
+                        </div>
+                    </div>
+
+                    {/* 设置模态框 - 仅在主服务端有效 */}
+                    {<%= isMainServer %> && (
+                    <Modal show={showSettings} onHide={() => setShowSettings(false)}>
+                        <Modal.Header closeButton>
+                            <Modal.Title>服务设置</Modal.Title>
+                        </Modal.Header>
+                        <Modal.Body>
+                            <Form id="settingsForm">
+                                <Form.Group className="mb-3">
+                                    <Form.Label>上传路径</Form.Label>
+                                    <Form.Control
+                                        type="text"
+                                        name="uploadPath"
+                                        defaultValue={settings.uploadPath}
+                                    />
+                                </Form.Group>
+
+                                <Form.Group className="mb-3">
+                                    <Form.Label>端口号</Form.Label>
+                                    <Form.Control
+                                        type="number"
+                                        name="port"
+                                        defaultValue={settings.port}
+                                    />
+                                </Form.Group>
+
+                                <Form.Group className="mb-3">
+                                    <Form.Label>IP 地址</Form.Label>
+                                    <Form.Select
+                                        name="ip"
+                                        value={settings.ip}
+                                        onChange={(e) => setSettings({ ...settings, ip: e.target.value })}
+                                    >
+                                        {ipAddresses.map(ip => (
+                                            <option key={ip} value={ip}>{ip}</option>
+                                        ))}
+                                    </Form.Select>
+                                </Form.Group>
+
+                                <Form.Check
+                                    type="checkbox"
+                                    id="authEnable"
+                                    name="authEnable"
+                                    label="启用密码保护"
+                                    defaultChecked={settings.authEnable}
+                                    className="mb-3"
+                                />
+
+                                {settings.authEnable && (
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>访问密码</Form.Label>
+                                        <Form.Control
+                                            type="text"
+                                            name="password"
+                                            defaultValue={settings.password}
+                                        />
+                                    </Form.Group>
+                                )}
+
+                                <Form.Group className="mb-3">
+                                    <Form.Label>分片大小 (MB)</Form.Label>
+                                    <Form.Control
+                                        type="number"
+                                        name="chunkSize"
+                                        defaultValue={settings.chunkSize}
+                                    />
+                                </Form.Group>
+                            </Form>
+                        </Modal.Body>
+                        <Modal.Footer>
+                            <Button variant="secondary" onClick={() => setShowSettings(false)}>
+                                取消
+                            </Button>
+                            <Button variant="primary" onClick={handleSaveSettings}>
+                                保存设置
+                            </Button>
+                        </Modal.Footer>
+                    </Modal>
+                    )}
+                </div>
+            );
+        }
+
+        // 渲染应用
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+
+</html>
