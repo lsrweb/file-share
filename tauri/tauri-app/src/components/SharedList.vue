@@ -51,7 +51,7 @@ const handleDelete = (item: SharedItem) => {
         <div v-if="wsStore.sharedItems.length > 0">
           <div v-for="item in wsStore.sharedItems" :key="item.id"
             class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm hover:shadow transition"
-            :class="{ 'border-blue-500 dark:border-blue-500': wsStore.selectedItem && wsStore.selectedItem.id === item.id }">
+            :class="{ 'border-blue-500 dark:border-blue-500': wsStore.selectedItem && wsStore.selectedItem.value && wsStore.selectedItem.value.id === item.id }">
             <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center">
               <div class="mb-2 sm:mb-0">
                 <div class="flex items-center">
@@ -84,7 +84,7 @@ const handleDelete = (item: SharedItem) => {
               </div>
             </div>
             <!-- 共享项内容预览（仅当该项被选中时显示） -->
-            <div v-if="wsStore.selectedItem && wsStore.selectedItem.id === item.id"
+            <div v-if="wsStore.selectedItem && wsStore.selectedItem.value && wsStore.selectedItem.value.id === item.id"
               class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
               <div class="flex justify-between items-center mb-2">
                 <h3 class="text-md font-medium text-gray-700 dark:text-gray-300">

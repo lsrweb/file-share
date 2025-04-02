@@ -25,11 +25,10 @@ async function startAutoDiscovery() {
 
   // 每分钟自动发现一次
   autoDiscoveryInterval.value = window.setInterval(async () => {
-    const previousCount = wsStore.discoveredServers.length;
     await emit('discover');
 
     // 检查是否发现了新服务
-    if (wsStore.discoveredServers.length === 0) {
+    if (wsStore.discoveredServers.value.length === 0) {
       emptyDiscoveryCount.value++;
       
       // 如果连续多次没有发现服务，则停止自动发现
@@ -92,10 +91,10 @@ onUnmounted(() => {
       自动发现已停止，可手动刷新
     </div>
 
-    <div v-if="wsStore.discoveredServers.length > 0" class="mt-2 space-y-2">
-      <div v-for="server in wsStore.discoveredServers" :key="`${server.server_address}:${server.server_port}`"
+    <div v-if="wsStore.discoveredServers.value.length > 0" class="mt-2 space-y-2">
+      <div v-for="server in wsStore.discoveredServers.value" :key="`${server.server_address}:${server.server_port}`"
         class="p-2 border border-gray-200 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-        :class="{ 'border-blue-500 bg-blue-50 dark:bg-blue-900': wsStore.selectedServer && wsStore.selectedServer.server_address === server.server_address && wsStore.selectedServer.server_port === server.server_port }"
+        :class="{ 'border-blue-500 bg-blue-50 dark:bg-blue-900': wsStore.selectedServer.value && wsStore.selectedServer.value.server_address === server.server_address && wsStore.selectedServer.value.server_port === server.server_port }"
         @click="emit('select-server', server)">
         <div class="font-medium text-sm">{{ server.server_name }}</div>
         <div class="text-xs text-gray-500 dark:text-gray-400">{{ server.server_address }}:{{ server.server_port }}</div>

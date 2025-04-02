@@ -11,7 +11,7 @@ import HeaderBar from './components/HeaderBar.vue';
 
 // 导入WebSocket状态管理
 import { WS_STORE_KEY } from './store/useWebSocket';
-import { ServerInfo } from "./types";
+import { ServerInfo, SharedItem } from "./types";
 
 // 使用依赖注入获取WebSocket状态
 const wsStore = inject(WS_STORE_KEY)!;
@@ -49,7 +49,7 @@ const handleShareText = (text: string) => {
   });
 };
 
-const handleViewItem = (item) => {
+const handleViewItem = (item: SharedItem) => {
   wsStore.selectedItem.value = item;
 
   // if (item.content) {
@@ -63,7 +63,7 @@ const handleViewItem = (item) => {
   // }
 };
 
-const handleDeleteItem = (item) => {
+const handleDeleteItem = (item: SharedItem) => {
   wsStore.sendMessage({
     action: "deleteSharedItem",
     id: item.id

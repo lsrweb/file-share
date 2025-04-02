@@ -1,4 +1,4 @@
-import { ref, inject, provide, InjectionKey, App, reactive } from 'vue';
+import { ref, InjectionKey, App, reactive } from 'vue';
 import { invoke } from "@tauri-apps/api/core";
 import type { ServerInfo, SharedItem } from '../types';
 

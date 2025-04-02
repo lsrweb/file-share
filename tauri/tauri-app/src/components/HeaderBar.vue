@@ -12,13 +12,14 @@ const wsStore = inject(WS_STORE_KEY)!;
       <span class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-md text-sm mr-3">
         {{ wsStore.serverAddress }}
       </span>
+      
       <span :class="{
         'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium': true,
-        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300': wsStore.connectionStatus === '已连接',
-        'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300': wsStore.connectionStatus === '连接错误',
-        'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300': wsStore.connectionStatus === '未连接'
+        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300': wsStore.connectionStatus.value === '已连接',
+        'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300': wsStore.connectionStatus.value === '连接错误',
+        'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300': wsStore.connectionStatus.value === '未连接'
       }">
-        {{ wsStore.connectionStatus }}
+        {{ wsStore.connectionStatus.value }}
       </span>
     </div>
   </header>
