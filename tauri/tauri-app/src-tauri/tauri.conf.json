@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "tauri-app",
+        "title": "FileShare",
         "width": 1200,
-        "height": 600
+        "height": 600,
+        "decorations": false,
+        "resizable": false
       }
     ],
     "security": {
