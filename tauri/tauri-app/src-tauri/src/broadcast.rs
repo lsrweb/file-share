@@ -6,7 +6,7 @@ use tokio::time::sleep;
 use crate::models::BroadcastMessage;
 
 // 广播常量
-pub const BROADCAST_PORT: u16 = 45678;
+pub const BROADCAST_PORT: u16 = 5421; // Changed from 45678 to fixed port 5421
 pub const SERVICE_DISCOVERY_MSG: &str = "FILE_SHARE_SERVICE";
 pub const BROADCAST_INTERVAL: Duration = Duration::from_secs(5);
 pub const DISCOVERY_TIMEOUT: Duration = Duration::from_secs(5); // 增加超时时间
