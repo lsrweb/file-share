@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { useWebSocket } from '../store/useWebSocket';
+import { inject } from 'vue';
+import { WS_STORE_KEY } from '../store/useWebSocket';
 import type { SharedItem } from '../types';
 
-const wsStore = useWebSocket();
+const wsStore = inject(WS_STORE_KEY)!;
 
 function formatFileSize(size: number) {
   if (size < 1024) return `${size} B`;
@@ -40,10 +41,11 @@ const handleDelete = (item: SharedItem) => {
     </div>
 
     <div class="p-4">
+      {{ wsStore.sharedItems }}
+
       <div v-if="!wsStore.wsReady" class="bg-yellow-100 dark:bg-yellow-900 border-l-4 border-yellow-500 text-yellow-700 dark:text-yellow-300 p-4 rounded">
         <p>正在连接服务器，请稍候...</p>
       </div>
-      
       <div class="space-y-4" v-else>
         <!-- 当有共享项时 -->
         <div v-if="wsStore.sharedItems.length > 0">
@@ -111,7 +113,6 @@ const handleDelete = (item: SharedItem) => {
         <div v-else class="bg-blue-100 dark:bg-blue-900 border-l-4 border-blue-500 text-blue-700 dark:text-blue-300 p-4 rounded">
           <p>还没有共享的文件或文本，快来分享吧！</p>
         </div>
-{{ wsStore.selectedItem }}
 
       </div>
     </div>

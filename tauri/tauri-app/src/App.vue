@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from "vue";
+import { onMounted, onUnmounted, inject } from "vue";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 // 导入组件
@@ -10,11 +10,11 @@ import SharedList from './components/SharedList.vue';
 import HeaderBar from './components/HeaderBar.vue';
 
 // 导入WebSocket状态管理
-import { useWebSocket } from './store/useWebSocket';
+import { WS_STORE_KEY } from './store/useWebSocket';
 import { ServerInfo } from "./types";
 
-// 使用WebSocket状态
-const wsStore = useWebSocket();
+// 使用依赖注入获取WebSocket状态
+const wsStore = inject(WS_STORE_KEY)!;
 
 // 组件事件处理函数
 const handleDiscoverServices = () => {
@@ -92,13 +92,13 @@ onUnmounted(() => {
       <HeaderBar />
 
       <!-- 错误提示 -->
-      <div v-if="wsStore.error"
+      <!-- <div v-if="wsStore.error"
         class="bg-red-100 dark:bg-red-900 border-l-4 border-red-500 text-red-700 dark:text-red-300 p-4 rounded-r mb-6">
         <div class="flex items-center">
           <span class="mr-2">⚠️</span>
           <p>{{ wsStore.error }}</p>
         </div>
-      </div>
+      </div> -->
 
       <!-- 左右两栏布局 -->
       <div class="flex flex-col md:flex-row gap-6">

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { useWebSocket } from '../store/useWebSocket';
+import { inject } from 'vue';
+import { WS_STORE_KEY } from '../store/useWebSocket';
 
-const wsStore = useWebSocket();
+const wsStore = inject(WS_STORE_KEY)!;
 
 const emit = defineEmits<{
   'select-file': [];

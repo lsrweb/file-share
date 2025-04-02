@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useWebSocket } from '../store/useWebSocket';
+import { ref, inject } from 'vue';
+import { WS_STORE_KEY } from '../store/useWebSocket';
 
-const wsStore = useWebSocket();
+const wsStore = inject(WS_STORE_KEY)!;
 const textContent = ref('');
 
 const handleShare = () => {

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { useWebSocket } from '../store/useWebSocket';
+import { inject } from 'vue';
+import { WS_STORE_KEY } from '../store/useWebSocket';
 import type { ServerInfo } from '../types';
 import { onMounted, onUnmounted, ref } from 'vue';
 
-const wsStore = useWebSocket();
+const wsStore = inject(WS_STORE_KEY)!;
 const autoDiscoveryInterval = ref<number | null>(null);
 const emptyDiscoveryCount = ref(0);
 const MAX_EMPTY_DISCOVERIES = 5;
@@ -28,33 +29,30 @@ async function startAutoDiscovery() {
     await emit('discover');
 
     // 检查是否发现了新服务
-    if (wsStore.discoveredServers.length === previousCount) {
+    if (wsStore.discoveredServers.length === 0) {
       emptyDiscoveryCount.value++;
-      console.log(`No new servers found (attempt ${emptyDiscoveryCount.value}/${MAX_EMPTY_DISCOVERIES})`);
-
-      // 如果连续5次没有发现新服务，停止自动发现
+      
+      // 如果连续多次没有发现服务，则停止自动发现
       if (emptyDiscoveryCount.value >= MAX_EMPTY_DISCOVERIES) {
-        console.log('Max empty discoveries reached, stopping auto-discovery');
         stopAutoDiscovery();
       }
     } else {
-      // 发现新服务，重置计数器
+      // 重置计数器
       emptyDiscoveryCount.value = 0;
     }
-  }, 60000); // 1分钟
+  }, 60000); // 60秒
 }
 
 // 停止自动发现
 function stopAutoDiscovery() {
   if (autoDiscoveryInterval.value !== null) {
-    window.clearInterval(autoDiscoveryInterval.value);
+    clearInterval(autoDiscoveryInterval.value);
     autoDiscoveryInterval.value = null;
   }
 }
 
-// 手动发现服务（重置自动发现）
+// 手动发现处理
 async function handleManualDiscover() {
-  stopAutoDiscovery();
   emptyDiscoveryCount.value = 0;
   await emit('discover');
   startAutoDiscovery();

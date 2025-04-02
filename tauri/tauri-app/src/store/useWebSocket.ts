@@ -2,6 +2,7 @@ import { ref, inject, provide, InjectionKey, App, reactive } from 'vue';
 import { invoke } from "@tauri-apps/api/core";
 import type { ServerInfo, SharedItem } from '../types';
 
+// 为WebSocket存储定义注入键
 export const WS_STORE_KEY = Symbol('ws-store') as InjectionKey<ReturnType<typeof createWebSocketStore>>;
 
 // 创建全局单例存储
@@ -105,8 +106,6 @@ export function createWebSocketStore() {
         if (data.type === 'sharedItems' || data.sharedItems) {
           console.log("Updating shared items:", data.sharedItems || data.data);
           sharedItems.splice(0, sharedItems.length, ...(data.sharedItems || data.data || []));
-          
-          
           loading.value = false;
         }
 
@@ -115,11 +114,8 @@ export function createWebSocketStore() {
           const newItem = data.itemAdded || data.data;
           console.log("Adding new shared item:", newItem);
           if (!sharedItems.some(item => item.id === newItem.id)) {
-            // sharedItems = [newItem, ...sharedItems];
-            // 触发reactive更新
-            sharedItems = [...sharedItems, newItem];
-            
-            
+            // 使用 push 方法而不是创建新数组，以保持响应式
+            sharedItems.push(newItem);
           }
         }
 
@@ -127,7 +123,11 @@ export function createWebSocketStore() {
         if (data.type === 'itemRemoved' || data.itemRemoved) {
           const removedId = data.itemRemoved || data.data;
           console.log("Removing shared item:", removedId);
-          sharedItems = sharedItems.filter(item => item.id !== removedId);
+          // 使用 splice 方法从数组中移除项目
+          const index = sharedItems.findIndex(item => item.id === removedId);
+          if (index !== -1) {
+            sharedItems.splice(index, 1);
+          }
           
           // 如果当前选中的就是被删除的项，清除选中状态
           if (selectedItem.value && selectedItem.value.id === removedId) {
@@ -286,22 +286,15 @@ export function installWebSocketStore(app: App) {
   return store;
 }
 
-// 提供状态管理 (用于组件中的 provide)
-export function provideWebSocket() {
-  const store = getWebSocketStore();
-  provide(WS_STORE_KEY, store);
-  return store;
-}
-
-// 使用状态管理
-export function useWebSocket() {
-  // 先尝试通过依赖注入获取
-  const store = inject(WS_STORE_KEY, null);
-  if (store) {
-    return store;
-  }
-  
-  // 如果注入失败，则返回全局单例
-  // 这样即使组件没有正确注入，也能访问全局状态
-  return getWebSocketStore();
-}
+// 使用状态管理 - 已不再需要，各组件应直接使用 inject(WS_STORE_KEY)
+// export function useWebSocket() {
+//   // 先尝试通过依赖注入获取
+//   const store = inject(WS_STORE_KEY, null);
+//   if (store) {
+//     return store;
+//   }
+//   
+//   // 如果注入失败，则返回全局单例
+//   // 这样即使组件没有正确注入，也能访问全局状态
+//   return getWebSocketStore();
+// }
