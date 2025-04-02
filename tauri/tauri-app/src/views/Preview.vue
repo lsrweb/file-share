@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { invoke } from '@tauri-apps/api/core';
 
 const route = useRoute();
 const fileId = ref(route.params.id as string);
@@ -50,8 +49,8 @@ async function loadFileInfo() {
     if (previewType.value === 'text' && file.value.type !== 'file') {
       fileContent.value = file.value.content || '';
     }
-  } catch (e) {
-    error.value = e.message || 'Failed to load file details';
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'Failed to load file details';
     console.error('Error loading file details:', e);
   } finally {
     isLoading.value = false;
@@ -123,9 +122,9 @@ async function loadTextContent() {
     }
     
     fileContent.value = data.data || '';
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('加载文本内容失败:', e);
-    fileContent.value = '无法加载文件内容: ' + (e.message || '未知错误');
+    fileContent.value = '无法加载文件内容: ' + (e instanceof Error ? e.message : '未知错误');
   }
 }
 

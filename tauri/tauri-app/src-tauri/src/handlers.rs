@@ -327,3 +327,30 @@ pub async fn handle_get_item_content(
 
     Ok(())
 }
+
+// 定义一个新函数，用于在发现服务时通知所有客户端
+pub async fn broadcast_discovered_services(
+    state: &Arc<AppState>,
+    discovered_services: Vec<crate::models::BroadcastMessage>
+) {
+    // 创建通知消息
+    let notification = match serde_json::to_string(&serde_json::json!({
+        "type": "discoveredServices",
+        "data": discovered_services
+    })) {
+        Ok(msg) => msg,
+        Err(e) => {
+            eprintln!("序列化发现的服务失败: {}", e);
+            return;
+        }
+    };
+
+    // 通知所有连接的客户端
+    for (addr, client_tx) in state.connected_clients.lock().unwrap().iter() {
+        if client_tx.try_send(Message::Text(notification.clone())).is_err() {
+            println!("向客户端 {} 推送服务列表失败", addr);
+        } else {
+            println!("已向客户端 {} 推送 {} 个发现的服务", addr, discovered_services.len());
+        }
+    }
+}

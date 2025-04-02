@@ -102,6 +102,12 @@ export function createWebSocketStore() {
         const data = JSON.parse(event.data);
         console.log("WebSocket message received:", data);
 
+        // 处理推送的已发现服务列表
+        if (data.type === 'discoveredServices') {
+          console.log("收到推送的服务列表:", data.data);
+          discoveredServers.value = data.data || [];
+        }
+
         // 处理共享列表更新
         if (data.type === 'sharedItems' || data.sharedItems) {
           console.log("Updating shared items:", data.sharedItems || data.data);

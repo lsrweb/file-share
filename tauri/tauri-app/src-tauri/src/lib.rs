@@ -22,9 +22,14 @@ fn get_server_address(state: State<'_, String>) -> String {
 
 // Tauri命令：发现网络上的服务
 #[tauri::command]
-async fn discover_services() -> Result<Vec<models::BroadcastMessage>, String> {
+async fn discover_services(state: State<'_, Arc<AppState>>) -> Result<Vec<models::BroadcastMessage>, String> {
     let local_ip = local_ip().map_err(|e| format!("Failed to get local IP: {}", e))?;
-    discover_network_services(local_ip.to_string(), 8080).await
+    let services = discover_network_services(local_ip.to_string(), 8080).await?;
+    
+    // 广播发现的服务到所有WebSocket客户端
+    handlers::broadcast_discovered_services(&state.inner(), services.clone()).await;
+    
+    Ok(services)
 }
 
 // Tauri命令：获取问候消息

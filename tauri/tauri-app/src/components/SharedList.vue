@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { inject, computed, ref } from 'vue';
+import { inject } from 'vue';
 import { WS_STORE_KEY } from '../store/useWebSocket';
 import type { SharedItem } from '../types';
-import { marked } from 'marked';
 import { useRouter } from 'vue-router';
 
 const wsStore = inject(WS_STORE_KEY)!;
@@ -39,7 +38,7 @@ const emit = defineEmits<{
 
 const handleView = (item: SharedItem) => {
   console.log(`Viewing item id: ${item.id}, name: ${item.name}`);
-  
+
   // 修改为打开预览页面
   if (item.id) {
     router.push({ name: 'Preview', params: { id: item.id } });
@@ -57,8 +56,8 @@ const getFileIcon = (item: SharedItem) => {
   if (item.type === 'text') {
     return item.contentType === 'markdown' ? fileIcons.markdown : fileIcons.text;
   }
-  return item.fileType && fileIcons[item.fileType as keyof typeof fileIcons] 
-    ? fileIcons[item.fileType as keyof typeof fileIcons] 
+  return item.fileType && fileIcons[item.fileType as keyof typeof fileIcons]
+    ? fileIcons[item.fileType as keyof typeof fileIcons]
     : fileIcons.other;
 };
 
@@ -67,7 +66,7 @@ const getViewButtonText = (item: SharedItem) => {
   if (item.type === 'text') {
     return '查看';
   }
-  
+
   if (item.fileType) {
     switch (item.fileType) {
       case 'image':
@@ -86,14 +85,15 @@ const getViewButtonText = (item: SharedItem) => {
         return '预览';
     }
   }
-  
+
   return '预览';
 };
 </script>
 
 <template>
   <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-    <div class="p-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+    <div
+      class="p-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
       <h2 class="text-lg font-semibold text-gray-800 dark:text-white">分享列表</h2>
       <div class="text-sm text-gray-500">
         {{ wsStore.connectionStatus }}
@@ -104,7 +104,8 @@ const getViewButtonText = (item: SharedItem) => {
     </div>
 
     <div class="p-4">
-      <div v-if="!wsStore.wsReady" class="bg-yellow-100 dark:bg-yellow-900 border-l-4 border-yellow-500 text-yellow-700 dark:text-yellow-300 p-4 rounded">
+      <div v-if="!wsStore.wsReady"
+        class="bg-yellow-100 dark:bg-yellow-900 border-l-4 border-yellow-500 text-yellow-700 dark:text-yellow-300 p-4 rounded">
         <p>正在连接服务器，请稍候...</p>
       </div>
       <div class="space-y-4" v-else>
@@ -151,7 +152,8 @@ const getViewButtonText = (item: SharedItem) => {
         </div>
 
         <!-- 当没有共享项时 -->
-        <div v-else class="bg-blue-100 dark:bg-blue-900 border-l-4 border-blue-500 text-blue-700 dark:text-blue-300 p-4 rounded">
+        <div v-else
+          class="bg-blue-100 dark:bg-blue-900 border-l-4 border-blue-500 text-blue-700 dark:text-blue-300 p-4 rounded">
           <p>还没有共享的文件或文本，快来分享吧！</p>
         </div>
 
@@ -168,21 +170,25 @@ const getViewButtonText = (item: SharedItem) => {
   margin-top: 1rem;
   margin-bottom: 0.5rem;
 }
+
 .markdown-preview :deep(h2) {
   font-size: 1.3rem;
   font-weight: bold;
   margin-top: 0.8rem;
   margin-bottom: 0.4rem;
 }
+
 .markdown-preview :deep(h3) {
   font-size: 1.1rem;
   font-weight: bold;
   margin-top: 0.6rem;
   margin-bottom: 0.3rem;
 }
+
 .markdown-preview :deep(p) {
   margin-bottom: 0.5rem;
 }
+
 .markdown-preview :deep(pre) {
   background-color: #f5f5f5;
   padding: 0.5rem;
@@ -190,39 +196,49 @@ const getViewButtonText = (item: SharedItem) => {
   overflow-x: auto;
   margin: 0.5rem 0;
 }
+
 .markdown-preview :deep(code) {
   background-color: #f5f5f5;
   padding: 0.1rem 0.3rem;
   border-radius: 0.25rem;
   font-family: monospace;
 }
+
 .markdown-preview :deep(a) {
   color: #3b82f6;
   text-decoration: underline;
 }
-.markdown-preview :deep(ul), .markdown-preview :deep(ol) {
+
+.markdown-preview :deep(ul),
+.markdown-preview :deep(ol) {
   padding-left: 1.5rem;
   margin: 0.5rem 0;
 }
+
 .markdown-preview :deep(li) {
   margin-bottom: 0.25rem;
 }
+
 .markdown-preview :deep(blockquote) {
   border-left: 4px solid #e5e7eb;
   padding-left: 1rem;
   color: #6b7280;
   margin: 0.5rem 0;
 }
+
 .markdown-preview :deep(table) {
   border-collapse: collapse;
   width: 100%;
   margin: 0.5rem 0;
 }
-.markdown-preview :deep(th), .markdown-preview :deep(td) {
+
+.markdown-preview :deep(th),
+.markdown-preview :deep(td) {
   border: 1px solid #e5e7eb;
   padding: 0.5rem;
   text-align: left;
 }
+
 .markdown-preview :deep(th) {
   background-color: #f3f4f6;
 }
