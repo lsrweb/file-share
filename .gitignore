@@ -36,3 +36,10 @@ dist
 .vscode/
 utools/main/*
 utools/preload/web/*
+
+## 忽略target目录下的所有文件
+target/**
+**/target/**
+!**/src/test/**/target/**
+**/node_modules/**
+node_modules/**
