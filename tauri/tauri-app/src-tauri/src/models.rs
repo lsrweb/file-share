@@ -20,5 +20,10 @@ pub struct SharedItem {
     pub username: String,
     pub uploadTime: u64,
     pub size: Option<u64>,
+    #[serde(rename = "fileType")]
     pub file_type: Option<String>,
+    #[serde(rename = "mimeType")]
+    pub mime_type: Option<String>,
+    #[serde(rename = "contentType")]
+    pub content_type: Option<String>,
 }

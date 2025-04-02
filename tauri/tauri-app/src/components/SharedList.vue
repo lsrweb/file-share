@@ -1,10 +1,30 @@
 <script setup lang="ts">
-import { inject } from 'vue';
+import { inject, computed, ref } from 'vue';
 import { WS_STORE_KEY } from '../store/useWebSocket';
 import type { SharedItem } from '../types';
+import { marked } from 'marked';
+import { useRouter } from 'vue-router';
 
 const wsStore = inject(WS_STORE_KEY)!;
+const router = useRouter()
 
+// 文件图标映射
+const fileIcons = {
+  'image': '🖼️',
+  'video': '🎬',
+  'audio': '🎵',
+  'pdf': '📄',
+  'text': '📝',
+  'code': '📊',
+  'markdown': '📑',
+  'document': '📃',
+  'spreadsheet': '📊',
+  'presentation': '📊',
+  'archive': '🗂️',
+  'other': '📄'
+};
+
+// 格式化文件大小
 function formatFileSize(size: number) {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
@@ -18,13 +38,56 @@ const emit = defineEmits<{
 }>();
 
 const handleView = (item: SharedItem) => {
-  console.log(`Viewing item: ${item.name}`);
+  console.log(`Viewing item id: ${item.id}, name: ${item.name}`);
   
-  emit('view', item);
+  // 修改为打开预览页面
+  if (item.id) {
+    router.push({ name: 'Preview', params: { id: item.id } });
+  } else {
+    emit('view', item);
+  }
 };
 
 const handleDelete = (item: SharedItem) => {
   emit('delete', item);
+};
+
+// 获取文件图标
+const getFileIcon = (item: SharedItem) => {
+  if (item.type === 'text') {
+    return item.contentType === 'markdown' ? fileIcons.markdown : fileIcons.text;
+  }
+  return item.fileType && fileIcons[item.fileType as keyof typeof fileIcons] 
+    ? fileIcons[item.fileType as keyof typeof fileIcons] 
+    : fileIcons.other;
+};
+
+// 获取预览按钮文字
+const getViewButtonText = (item: SharedItem) => {
+  if (item.type === 'text') {
+    return '查看';
+  }
+  
+  if (item.fileType) {
+    switch (item.fileType) {
+      case 'image':
+        return '查看图片';
+      case 'video':
+        return '播放视频';
+      case 'audio':
+        return '播放音频';
+      case 'pdf':
+        return '查看PDF';
+      case 'document':
+      case 'spreadsheet':
+      case 'presentation':
+        return '查看文档';
+      default:
+        return '预览';
+    }
+  }
+  
+  return '预览';
 };
 </script>
 
@@ -41,8 +104,6 @@ const handleDelete = (item: SharedItem) => {
     </div>
 
     <div class="p-4">
-      {{ wsStore.sharedItems }}
-
       <div v-if="!wsStore.wsReady" class="bg-yellow-100 dark:bg-yellow-900 border-l-4 border-yellow-500 text-yellow-700 dark:text-yellow-300 p-4 rounded">
         <p>正在连接服务器，请稍候...</p>
       </div>
@@ -50,16 +111,19 @@ const handleDelete = (item: SharedItem) => {
         <!-- 当有共享项时 -->
         <div v-if="wsStore.sharedItems.length > 0">
           <div v-for="item in wsStore.sharedItems" :key="item.id"
-            class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm hover:shadow transition"
-            :class="{ 'border-blue-500 dark:border-blue-500': wsStore.selectedItem && wsStore.selectedItem.value && wsStore.selectedItem.value.id === item.id }">
+            class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm hover:shadow transition">
             <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center">
               <div class="mb-2 sm:mb-0">
                 <div class="flex items-center">
-                  <span class="mr-2 text-xl">{{ item.type === 'file' ? '📄' : '📝' }}</span>
+                  <span class="mr-2 text-xl">{{ getFileIcon(item) }}</span>
                   <span class="font-semibold text-gray-800 dark:text-white">{{ item.name }}</span>
                   <span v-if="item.fileType"
                     class="ml-2 text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
                     {{ item.fileType }}
+                  </span>
+                  <span v-if="item.contentType === 'markdown'"
+                    class="ml-2 text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                    Markdown
                   </span>
                 </div>
                 <div class="text-gray-500 text-xs mt-1">
@@ -74,36 +138,13 @@ const handleDelete = (item: SharedItem) => {
                 <button @click="handleView(item)"
                   class="px-3 py-1 border border-blue-300 text-blue-500 rounded text-sm hover:bg-blue-50 transition"
                   :disabled="!wsStore.wsReady">
-                  {{ item.type === 'text' ? '查看' : '预览' }}
+                  {{ getViewButtonText(item) }}
                 </button>
                 <button @click="handleDelete(item)"
                   class="px-3 py-1 border border-red-300 text-red-500 rounded text-sm hover:bg-red-50 transition"
                   :disabled="!wsStore.wsReady">
                   删除
                 </button>
-              </div>
-            </div>
-            <!-- 共享项内容预览（仅当该项被选中时显示） -->
-            <div v-if="wsStore.selectedItem && wsStore.selectedItem.value && wsStore.selectedItem.value.id === item.id"
-              class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
-              <div class="flex justify-between items-center mb-2">
-                <h3 class="text-md font-medium text-gray-700 dark:text-gray-300">
-                  {{ item.type === 'text' ? '文本内容' : '文件内容' }}
-                </h3>
-              </div>
-              <div v-if="!wsStore.loading">
-                <pre
-                  class="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto whitespace-pre-wrap break-words text-gray-800 dark:text-gray-300">{{ wsStore.itemContent }}</pre>
-              </div>
-              <div v-else class="flex justify-center items-center h-32 text-gray-500">
-                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none"
-                  viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                  </path>
-                </svg>
-                加载中...
               </div>
             </div>
           </div>
@@ -118,3 +159,71 @@ const handleDelete = (item: SharedItem) => {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Markdown样式 */
+.markdown-preview :deep(h1) {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+.markdown-preview :deep(h2) {
+  font-size: 1.3rem;
+  font-weight: bold;
+  margin-top: 0.8rem;
+  margin-bottom: 0.4rem;
+}
+.markdown-preview :deep(h3) {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-top: 0.6rem;
+  margin-bottom: 0.3rem;
+}
+.markdown-preview :deep(p) {
+  margin-bottom: 0.5rem;
+}
+.markdown-preview :deep(pre) {
+  background-color: #f5f5f5;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+.markdown-preview :deep(code) {
+  background-color: #f5f5f5;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
+  font-family: monospace;
+}
+.markdown-preview :deep(a) {
+  color: #3b82f6;
+  text-decoration: underline;
+}
+.markdown-preview :deep(ul), .markdown-preview :deep(ol) {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+.markdown-preview :deep(li) {
+  margin-bottom: 0.25rem;
+}
+.markdown-preview :deep(blockquote) {
+  border-left: 4px solid #e5e7eb;
+  padding-left: 1rem;
+  color: #6b7280;
+  margin: 0.5rem 0;
+}
+.markdown-preview :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+.markdown-preview :deep(th), .markdown-preview :deep(td) {
+  border: 1px solid #e5e7eb;
+  padding: 0.5rem;
+  text-align: left;
+}
+.markdown-preview :deep(th) {
+  background-color: #f3f4f6;
+}
+</style>
