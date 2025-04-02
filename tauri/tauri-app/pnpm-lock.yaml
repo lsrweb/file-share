@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@kuyoonjo/tauri-plugin-udp':
+        specifier: ^0.1.1
+        version: 0.1.1
       '@tailwindcss/vite':
         specifier: ^4.1.0
         version: 4.1.0(vite@6.2.4(jiti@2.4.2)(lightningcss@1.29.2))
@@ -224,6 +227,9 @@ packages:
   '@jridgewell/sourcemap-codec@1.5.0':
     resolution: {integrity: sha512-gv3ZRaISU3fjPAgNsriBRqGWQL6quFx04YMPW/zD8XMLsU32mhCCbfbO6KZFLjvYpCZ8zyDEgqsgf+PwPaM7GQ==}
 
+  '@kuyoonjo/tauri-plugin-udp@0.1.1':
+    resolution: {integrity: sha512-nDZ3+aaTZOjK7zeo8SNv/VOsZ2XWOJj8QhmRyeLI1jQjCQD1nRjZ7NZy4K3O+T1L6dnfzwPbq8ogPrWbfZO/Sw==}
+
   '@rollup/rollup-android-arm-eabi@4.38.0':
     resolution: {integrity: sha512-ldomqc4/jDZu/xpYU+aRxo3V4mGCV9HeTgUBANI3oIQMOL+SsxB+S2lxMpkFp5UamSS3XuTMQVbsS24R4J4Qjg==}
     cpu: [arm]
@@ -417,6 +423,10 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6
 
+  '@tauri-apps/api@2.0.0-beta.12':
+    resolution: {integrity: sha512-77OvAnsExtiprnjQcvmDyZGfnIvMF/zVL5+8Vkl1R8o8E3iDtvEJZpbbH1F4dPtNa3gr4byp/5dm8hAa1+r3AA==}
+    engines: {node: '>= 18', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
+
   '@tauri-apps/api@2.4.1':
     resolution: {integrity: sha512-5sYwZCSJb6PBGbBL4kt7CnE5HHbBqwH+ovmOW6ZVju3nX4E3JX6tt2kRklFEH7xMOIwR0btRkZktuLhKvyEQYg==}
 
@@ -576,8 +586,14 @@ packages:
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
 
+  base64-js@1.5.1:
+    resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
+
   brace-expansion@2.0.1:
     resolution: {integrity: sha512-XnAIvQ8eM+kC6aULx6wuQiwVsnzsi9d3WxzV3FpWTGA19F621kwdbsAcFKXgKUHZWsy+mY6iL1sHTxWEFCytDA==}
+
+  buffer@6.0.3:
+    resolution: {integrity: sha512-FTiCpNxtwiZZHEZbcbTIcZjERVICn9yq/pDFkTl95/AxzD1naBctN7YO68riM/gLSDY7sdrMby8hofADYuuqOA==}
 
   csstype@3.1.3:
     resolution: {integrity: sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw==}
@@ -616,6 +632,9 @@ packages:
   he@1.2.0:
     resolution: {integrity: sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==}
     hasBin: true
+
+  ieee754@1.2.1:
+    resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
 
   jiti@2.4.2:
     resolution: {integrity: sha512-rg9zJN+G4n2nfJl5MW3BMygZX56zKPNVEYYqq7adpmMh4Jn2QNEwhvQlFy6jPVdcod7txZtKHWnyZiA3a0zP7A==}
@@ -884,6 +903,11 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.0': {}
 
+  '@kuyoonjo/tauri-plugin-udp@0.1.1':
+    dependencies:
+      '@tauri-apps/api': 2.0.0-beta.12
+      buffer: 6.0.3
+
   '@rollup/rollup-android-arm-eabi@4.38.0':
     optional: true
 
@@ -1004,6 +1028,8 @@ snapshots:
       '@tailwindcss/oxide': 4.1.0
       tailwindcss: 4.1.0
       vite: 6.2.4(jiti@2.4.2)(lightningcss@1.29.2)
+
+  '@tauri-apps/api@2.0.0-beta.12': {}
 
   '@tauri-apps/api@2.4.1': {}
 
@@ -1169,9 +1195,16 @@ snapshots:
 
   balanced-match@1.0.2: {}
 
+  base64-js@1.5.1: {}
+
   brace-expansion@2.0.1:
     dependencies:
       balanced-match: 1.0.2
+
+  buffer@6.0.3:
+    dependencies:
+      base64-js: 1.5.1
+      ieee754: 1.2.1
 
   csstype@3.1.3: {}
 
@@ -1222,6 +1255,8 @@ snapshots:
   graceful-fs@4.2.11: {}
 
   he@1.2.0: {}
+
+  ieee754@1.2.1: {}
 
   jiti@2.4.2: {}
 

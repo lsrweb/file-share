@@ -3794,6 +3794,7 @@ dependencies = [
  "tauri-plugin-websocket",
  "tokio",
  "tokio-tungstenite 0.21.0",
+ "uuid",
  "walkdir",
 ]
 

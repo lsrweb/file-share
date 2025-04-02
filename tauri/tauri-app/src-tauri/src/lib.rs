@@ -1,42 +1,151 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use futures_util::{SinkExt, StreamExt};
 use local_ip_address::local_ip;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tauri::{AppHandle, State};
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::{mpsc, Mutex as TokioMutex}; // 添加 Tokio 的 Mutex
+use tokio::net::{TcpListener, TcpStream, UdpSocket};
+use tokio::sync::mpsc;
+use tokio::sync::Mutex as TokioMutex;
+use tokio::time::sleep;
 use tokio_tungstenite::tungstenite::Message;
-use walkdir::WalkDir;
+use uuid::Uuid;
 
-// 共享状态结构体 - 修改为使用 TokioMutex
+// 广播常量
+const BROADCAST_PORT: u16 = 45678;
+const SERVICE_DISCOVERY_MSG: &str = "FILE_SHARE_SERVICE";
+const BROADCAST_INTERVAL: Duration = Duration::from_secs(5);
+
+// 共享状态结构体
 struct AppState {
     connected_clients: Mutex<HashMap<SocketAddr, mpsc::Sender<Message>>>,
-    shared_dir: TokioMutex<PathBuf>, // 改为 TokioMutex 以便在异步代码中安全使用
+    shared_items: TokioMutex<Vec<SharedItem>>,
 }
 
-// 文件信息结构体
+// 广播消息结构体
 #[derive(Serialize, Deserialize, Clone)]
-struct FileInfo {
+struct BroadcastMessage {
+    message_type: String,
+    server_address: String,
+    server_port: u16,
+    server_name: String,
+    timestamp: u64,
+}
+
+// 共享项结构体
+#[derive(Serialize, Deserialize, Clone)]
+struct SharedItem {
+    id: String,
     name: String,
-    path: String,
-    is_dir: bool,
-}
-
-// 文件列表响应
-#[derive(Serialize, Deserialize)]
-struct FileListResponse {
-    files: Vec<FileInfo>,
-}
-
-// 文件内容响应
-#[derive(Serialize, Deserialize)]
-struct FileContentResponse {
+    #[serde(rename = "type")]
+    item_type: String, // "text" or "file"
     content: String,
-    path: String,
+    path: Option<String>,    // Add path field for files
+    username: String,
+    upload_time: u64,
+    size: Option<u64>,      // Add size field for files
+    file_type: Option<String>, // Add file_type field
+}
+
+// 获取文件类型
+fn get_file_type(path: &str) -> Option<String> {
+    let extension = std::path::Path::new(path)
+        .extension()
+        .and_then(|ext| ext.to_str())?
+        .to_lowercase();
+    
+    match extension.as_str() {
+        "jpg" | "jpeg" | "png" | "gif" | "bmp" | "webp" => Some("image".to_string()),
+        "mp4" | "avi" | "mov" | "wmv" | "flv" | "webm" => Some("video".to_string()),
+        "mp3" | "wav" | "ogg" | "m4a" | "aac" => Some("audio".to_string()),
+        "pdf" => Some("pdf".to_string()),
+        "txt" | "md" | "json" | "xml" | "csv" => Some("text".to_string()),
+        _ => Some("other".to_string()),
+    }
+}
+
+// 启动UDP广播服务
+async fn start_broadcast_service(server_addr: String, server_port: u16) -> Result<(), String> {
+    let socket = UdpSocket::bind("0.0.0.0:0")
+        .await
+        .map_err(|e| format!("Failed to bind UDP socket: {}", e))?;
+    
+    // 启用广播
+    socket.set_broadcast(true)
+        .map_err(|e| format!("Failed to set broadcast option: {}", e))?;
+    
+    // 设置广播地址
+    let broadcast_addr = format!("255.255.255.255:{}", BROADCAST_PORT);
+    
+    // 创建广播消息
+    let broadcast_msg = BroadcastMessage {
+        message_type: SERVICE_DISCOVERY_MSG.to_string(),
+        server_address: server_addr.clone(),
+        server_port,
+        server_name: format!("Service Discovery Server ({})", server_addr),
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64, // 使用毫秒时间戳
+    };
+    
+    let broadcast_json = serde_json::to_string(&broadcast_msg)
+        .map_err(|e| format!("Failed to serialize broadcast message: {}", e))?;
+    
+    println!("Starting broadcast service for server: {}", server_addr);
+    
+    // 定期发送广播
+    tokio::spawn(async move {
+        loop {
+            match socket.send_to(broadcast_json.as_bytes(), &broadcast_addr).await {
+                Ok(_) => println!("Broadcast message sent to {}", broadcast_addr),
+                Err(e) => eprintln!("Failed to send broadcast message: {}", e),
+            }
+            sleep(BROADCAST_INTERVAL).await;
+        }
+    });
+    
+    Ok(())
+}
+
+// 启动UDP监听服务 (发现其他服务)
+async fn start_discovery_service() -> Result<mpsc::Receiver<BroadcastMessage>, String> {
+    let socket = UdpSocket::bind(format!("0.0.0.0:{}", BROADCAST_PORT))
+        .await
+        .map_err(|e| format!("Failed to bind discovery socket: {}", e))?;
+    
+    // 创建通道用于发送发现的服务
+    let (tx, rx) = mpsc::channel::<BroadcastMessage>(32);
+    
+    // 启动监听任务
+    tokio::spawn(async move {
+        let mut buf = [0u8; 1024];
+        
+        loop {
+            match socket.recv_from(&mut buf).await {
+                Ok((size, _addr)) => {
+                    if let Ok(json_str) = std::str::from_utf8(&buf[..size]) {
+                        if let Ok(message) = serde_json::from_str::<BroadcastMessage>(json_str) {
+                            if message.message_type == SERVICE_DISCOVERY_MSG {
+                                println!("Discovered service: {} at {}:{}", 
+                                         message.server_name, message.server_address, message.server_port);
+                                
+                                // 发送到接收方
+                                if tx.try_send(message).is_err() {
+                                    eprintln!("Failed to send discovery message to channel");
+                                }
+                            }
+                        }
+                    }
+                },
+                Err(e) => eprintln!("Failed to receive discovery message: {}", e),
+            }
+        }
+    });
+    
+    Ok(rx)
 }
 
 // 处理WebSocket连接
@@ -51,8 +160,8 @@ async fn handle_connection(state: Arc<AppState>, socket: TcpStream, addr: Socket
     // 拆分读写流
     let (ws_sender, mut ws_receiver) = ws_stream.split();
     
-    // 用 TokioMutex 包装 ws_sender，这样它可以在多个任务间共享
-    let ws_sender = Arc::new(TokioMutex::new(ws_sender));
+    // 创建websocket发送器
+    let ws_sender = Arc::new(tokio::sync::Mutex::new(ws_sender));
 
     // 为该客户端创建一个消息通道
     let (tx, mut rx) = mpsc::channel::<Message>(100);
@@ -60,10 +169,12 @@ async fn handle_connection(state: Arc<AppState>, socket: TcpStream, addr: Socket
     // 将发送端存储在共享状态中
     state.connected_clients.lock().unwrap().insert(addr, tx);
 
-    // 获取文件列表并发送
-    let file_list = get_file_list(&state.shared_dir.lock().await).await;
-    let response = serde_json::to_string(&FileListResponse { files: file_list }).unwrap();
-    ws_sender.lock().await.send(Message::Text(response)).await.unwrap();
+    // 发送连接成功消息
+    let connect_msg = serde_json::to_string(&serde_json::json!({
+        "event": "connected",
+        "message": "Connection established"
+    })).unwrap();
+    ws_sender.lock().await.send(Message::Text(connect_msg)).await.unwrap();
 
     // 处理从服务器到客户端的消息
     let ws_sender_clone = ws_sender.clone();
@@ -81,68 +192,204 @@ async fn handle_connection(state: Arc<AppState>, socket: TcpStream, addr: Socket
             Ok(msg) => {
                 match msg {
                     Message::Text(text) => {
-                        // 解析客户端请求
                         if let Ok(request) = serde_json::from_str::<serde_json::Value>(&text) {
                             if let Some(action) = request.get("action").and_then(|a| a.as_str()) {
                                 match action {
-                                    "getFileList" => {
-                                        let file_list = get_file_list(&state.shared_dir.lock().await).await;
-                                        let response = serde_json::to_string(&FileListResponse {
-                                            files: file_list,
-                                        }).unwrap();
+                                    "getSharedItems" => {
+                                        // 发送共享项列表
+                                        let items = state.shared_items.lock().await.clone();
+                                        let response = serde_json::to_string(&serde_json::json!({
+                                            "sharedItems": items
+                                        })).unwrap();
                                         ws_sender.lock().await.send(Message::Text(response)).await.unwrap();
                                     }
-                                    "getFileContent" => {
-                                        if let Some(path_str) = request.get("path").and_then(|p| p.as_str()) {
-                                            // 获取共享目录路径，但不要持有锁跨越 await 点
-                                            let full_path = {
-                                                let shared_dir = state.shared_dir.lock().await;
-                                                shared_dir.join(path_str)
+                                    "shareFile" => {
+                                        // 处理文件分享
+                                        if let Some(path) = request.get("path").and_then(|p| p.as_str()) {
+                                            // 检查文件是否存在
+                                            if !std::path::Path::new(path).exists() {
+                                                let error_response = serde_json::to_string(&serde_json::json!({
+                                                    "error": "File not found"
+                                                })).unwrap();
+                                                ws_sender.lock().await.send(Message::Text(error_response)).await.unwrap();
+                                                continue;
+                                            }
+
+                                            // 获取文件基本信息
+                                            let metadata = match std::fs::metadata(path) {
+                                                Ok(meta) => meta,
+                                                Err(_) => {
+                                                    let error_response = serde_json::to_string(&serde_json::json!({
+                                                        "error": "Failed to read file metadata"
+                                                    })).unwrap();
+                                                    ws_sender.lock().await.send(Message::Text(error_response)).await.unwrap();
+                                                    continue;
+                                                }
                                             };
-                                            
-                                            // 获取规范路径
-                                            match std::fs::canonicalize(&full_path) {
-                                                Ok(canonical_path) => {
-                                                    // 重新获取锁来检查路径
-                                                    let is_valid = {
-                                                        let shared_dir = state.shared_dir.lock().await;
-                                                        canonical_path.starts_with(&*shared_dir) && canonical_path.is_file()
-                                                    };
-                                                    
-                                                    if is_valid {
-                                                        match std::fs::read_to_string(&canonical_path) {
-                                                            Ok(content) => {
-                                                                let response = serde_json::to_string(
-                                                                    &FileContentResponse {
-                                                                        content,
-                                                                        path: path_str.to_string(),
-                                                                    },
-                                                                ).unwrap();
-                                                                ws_sender.lock().await.send(Message::Text(response)).await.unwrap();
-                                                            }
-                                                            Err(e) => {
-                                                                let error_msg = format!("{{\"error\": \"无法读取文件: {}\"}}", e);
-                                                                ws_sender.lock().await.send(Message::Text(error_msg)).await.unwrap();
-                                                            }
-                                                        }
-                                                    } else {
-                                                        let error_msg = "{\"error\": \"请求的文件不在共享目录中或不是文件\"}".to_string();
-                                                        ws_sender.lock().await.send(Message::Text(error_msg)).await.unwrap();
+
+                                            let file_name = std::path::Path::new(path)
+                                                .file_name()
+                                                .and_then(|n| n.to_str())
+                                                .unwrap_or("unknown");
+
+                                            let timestamp = std::time::SystemTime::now()
+                                                .duration_since(std::time::UNIX_EPOCH)
+                                                .unwrap_or_default()
+                                                .as_millis() as u64;
+
+                                            // 创建新的共享项
+                                            let new_item = SharedItem {
+                                                id: Uuid::new_v4().to_string(),
+                                                name: file_name.to_string(),
+                                                item_type: "file".to_string(),
+                                                content: String::new(), // 文件内容按需加载
+                                                path: Some(path.to_string()),
+                                                username: format!("User {}", addr),
+                                                upload_time: timestamp,
+                                                size: Some(metadata.len()),
+                                                file_type: get_file_type(path),
+                                            };
+
+                                            // 添加到共享列表
+                                            state.shared_items.lock().await.push(new_item.clone());
+
+                                            // 通知所有客户端
+                                            let notification = serde_json::to_string(&serde_json::json!({
+                                                "itemAdded": new_item
+                                            })).unwrap();
+
+                                            for (client_addr, client_tx) in state.connected_clients.lock().unwrap().iter() {
+                                                if *client_addr != addr {  // 不发送给自己
+                                                    if client_tx.try_send(Message::Text(notification.clone())).is_err() {
+                                                        println!("Failed to notify client {}", client_addr);
                                                     }
                                                 }
-                                                Err(_) => {
-                                                    let error_msg = "{\"error\": \"无效的文件路径\"}".to_string();
-                                                    ws_sender.lock().await.send(Message::Text(error_msg)).await.unwrap();
+                                            }
+
+                                            // 发送成功响应给发送者
+                                            let response = serde_json::to_string(&serde_json::json!({
+                                                "status": "success",
+                                                "message": "File shared successfully",
+                                                "itemAdded": new_item
+                                            })).unwrap();
+                                            ws_sender.lock().await.send(Message::Text(response)).await.unwrap();
+                                        }
+                                    }
+                                    "shareText" => {
+                                        // 处理文本分享
+                                        if let Some(content) = request.get("content").and_then(|c| c.as_str()) {
+                                            if !content.trim().is_empty() {
+                                                // 创建新的共享项
+                                                let id = Uuid::new_v4().to_string();
+                                                let timestamp = std::time::SystemTime::now()
+                                                    .duration_since(std::time::UNIX_EPOCH)
+                                                    .unwrap_or_default()
+                                                    .as_millis() as u64; // 使用毫秒时间戳
+                                                
+                                                let new_item = SharedItem {
+                                                    id: id.clone(),
+                                                    name: format!("Text {}", timestamp),
+                                                    item_type: "text".to_string(),
+                                                    content: content.to_string(),
+                                                    path: None,              // 文本类型没有文件路径
+                                                    username: format!("User {}", addr),
+                                                    upload_time: timestamp,
+                                                    size: None,              // 文本类型没有文件大小
+                                                    file_type: None,         // 文本类型没有文件类型
+                                                };
+                                                
+                                                // 添加到共享列表
+                                                state.shared_items.lock().await.push(new_item.clone());
+                                                
+                                                // 通知所有客户端
+                                                let notification = serde_json::to_string(&serde_json::json!({
+                                                    "itemAdded": new_item
+                                                })).unwrap();
+                                                
+                                                for (client_addr, client_tx) in state.connected_clients.lock().unwrap().iter() {
+                                                    if *client_addr != addr {  // 不发送给自己
+                                                        if client_tx.try_send(Message::Text(notification.clone())).is_err() {
+                                                            println!("Failed to notify client {}", client_addr);
+                                                        }
+                                                    }
                                                 }
+                                                
+                                                // 发送成功响应给发送者
+                                                let response = serde_json::to_string(&serde_json::json!({
+                                                    "status": "success",
+                                                    "message": "Text shared successfully",
+                                                    "itemAdded": new_item
+                                                })).unwrap();
+                                                ws_sender.lock().await.send(Message::Text(response)).await.unwrap();
+                                            }
+                                        }
+                                    }
+                                    "deleteSharedItem" => {
+                                        // 处理删除共享项
+                                        if let Some(id) = request.get("id").and_then(|id| id.as_str()) {
+                                            let mut items = state.shared_items.lock().await;
+                                            let initial_len = items.len();
+                                            items.retain(|item| item.id != id);
+                                            
+                                            if items.len() < initial_len {
+                                                // 有项目被删除，通知所有客户端
+                                                let notification = serde_json::to_string(&serde_json::json!({
+                                                    "itemRemoved": id
+                                                })).unwrap();
+                                                
+                                                for (client_addr, client_tx) in state.connected_clients.lock().unwrap().iter() {
+                                                    if client_tx.try_send(Message::Text(notification.clone())).is_err() {
+                                                        println!("Failed to notify client {}", client_addr);
+                                                    }
+                                                }
+                                                
+                                                // 发送成功响应给发送者
+                                                let response = serde_json::to_string(&serde_json::json!({
+                                                    "status": "success",
+                                                    "message": "Item deleted successfully"
+                                                })).unwrap();
+                                                ws_sender.lock().await.send(Message::Text(response)).await.unwrap();
+                                            }
+                                        }
+                                    }
+                                    "getItemContent" => {
+                                        // 获取项目内容
+                                        if let Some(id) = request.get("id").and_then(|id| id.as_str()) {
+                                            let items = state.shared_items.lock().await;
+                                            if let Some(item) = items.iter().find(|item| item.id == id) {
+                                                let content = if item.item_type == "text" {
+                                                    item.content.clone()
+                                                } else if let Some(path) = &item.path {
+                                                    // 读取文件内容
+                                                    match std::fs::read_to_string(path) {
+                                                        Ok(content) => content,
+                                                        Err(_) => "Failed to read file content".to_string(),
+                                                    }
+                                                } else {
+                                                    "No content available".to_string()
+                                                };
+
+                                                let response = serde_json::to_string(&serde_json::json!({
+                                                    "id": id,
+                                                    "content": content
+                                                })).unwrap();
+                                                ws_sender.lock().await.send(Message::Text(response)).await.unwrap();
                                             }
                                         }
                                     }
                                     _ => {
-                                        let error_msg = "{\"error\": \"未知的操作\"}".to_string();
-                                        ws_sender.lock().await.send(Message::Text(error_msg)).await.unwrap();
+                                        // 未知动作
+                                        println!("Unknown action: {}", action);
+                                        let response = serde_json::to_string(&serde_json::json!({
+                                            "error": format!("Unknown action: {}", action)
+                                        })).unwrap();
+                                        ws_sender.lock().await.send(Message::Text(response)).await.unwrap();
                                     }
                                 }
                             }
+                        } else {
+                            // 无法解析JSON
+                            println!("Invalid JSON received: {}", text);
                         }
                     }
                     Message::Close(_) => break,
@@ -158,42 +405,21 @@ async fn handle_connection(state: Arc<AppState>, socket: TcpStream, addr: Socket
     println!("WebSocket connection closed: {}", addr);
 }
 
-// 获取目录中的文件列表 - 改为异步函数
-async fn get_file_list(dir: &Path) -> Vec<FileInfo> {
-    let mut files = Vec::new();
-
-    for entry in WalkDir::new(dir)
-        .max_depth(1)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        if entry.path() == dir {
-            continue;
-        }
-
-        let relative_path = entry.path().strip_prefix(dir).unwrap_or(entry.path());
-        let path_string = relative_path.to_string_lossy().into_owned();
-
-        files.push(FileInfo {
-            name: entry.file_name().to_string_lossy().into_owned(),
-            path: path_string,
-            is_dir: entry.file_type().is_dir(),
-        });
-    }
-
-    files
-}
-
 // 启动WebSocket服务器
 async fn start_websocket_server(state: Arc<AppState>, port: u16) -> Result<String, String> {
-    let ip = local_ip().map_err(|e| format!("获取本地IP地址失败: {}", e))?;
+    let ip = local_ip().map_err(|e| format!("Failed to get local IP address: {}", e))?;
     let addr = format!("{}:{}", ip, port);
 
     // 绑定地址
     let listener = TcpListener::bind(&addr)
         .await
-        .map_err(|e| format!("绑定WebSocket服务器失败: {}", e))?;
-    println!("WebSocket服务器已启动: {}", addr);
+        .map_err(|e| format!("Failed to bind WebSocket server: {}", e))?;
+    println!("WebSocket server started: {}", addr);
+
+    // 启动广播服务
+    if let Err(e) = start_broadcast_service(ip.to_string(), port).await {
+        eprintln!("Failed to start broadcast service: {}", e);
+    }
 
     // 处理连接
     tokio::spawn(async move {
@@ -208,37 +434,108 @@ async fn start_websocket_server(state: Arc<AppState>, port: u16) -> Result<Strin
     Ok(addr)
 }
 
-// Tauri命令：设置共享目录
-#[tauri::command]
-async fn set_shared_dir(path: String, state: State<'_, Arc<AppState>>) -> Result<String, String> {
-    let path = PathBuf::from(path);
-
-    if !path.exists() {
-        return Err("目录不存在".into());
-    }
-
-    if !path.is_dir() {
-        return Err("所选路径不是目录".into());
-    }
-
-    // 更新共享目录
-    *state.shared_dir.lock().await = path;
-
-    // 向所有连接的客户端发送更新
-    let file_list = get_file_list(&state.shared_dir.lock().await).await;
-    let response = serde_json::to_string(&FileListResponse { files: file_list }).unwrap();
-
-    for (_, tx) in state.connected_clients.lock().unwrap().iter() {
-        let _ = tx.try_send(Message::Text(response.clone()));
-    }
-
-    Ok("已成功设置共享目录".into())
-}
-
 // Tauri命令：获取WebSocket服务器地址
 #[tauri::command]
 fn get_server_address(state: State<'_, String>) -> String {
     state.inner().clone()
+}
+
+// Tauri命令：发现网络上的服务
+#[tauri::command]
+async fn discover_services() -> Result<Vec<BroadcastMessage>, String> {
+    let (tx, mut rx) = mpsc::channel::<BroadcastMessage>(32);
+    let mut discovered_services = Vec::new();
+    
+    // 获取本机IP和端口
+    let local_ip = local_ip().map_err(|e| format!("Failed to get local IP: {}", e))?;
+    let local_port = 8080; // 使用默认端口
+    
+    // 添加本机服务到发现列表
+    let local_service = BroadcastMessage {
+        message_type: SERVICE_DISCOVERY_MSG.to_string(),
+        server_address: local_ip.to_string(),
+        server_port: local_port,
+        server_name: format!("Local Service ({})", local_ip),
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64,
+    };
+    discovered_services.push(local_service);
+    
+    // 创建一个临时 UDP 套接字发送广播消息
+    let socket = match UdpSocket::bind("0.0.0.0:0").await {
+        Ok(s) => s,
+        Err(e) => return Err(format!("Failed to bind UDP socket: {}", e)),
+    };
+    
+    // 设置广播选项
+    if let Err(e) = socket.set_broadcast(true) {
+        return Err(format!("Failed to set broadcast option: {}", e));
+    }
+    
+    // 广播发现请求
+    let broadcast_addr = format!("255.255.255.255:{}", BROADCAST_PORT);
+    let discovery_request = BroadcastMessage {
+        message_type: "DISCOVERY_REQUEST".to_string(),
+        server_address: local_ip.to_string(),
+        server_port: local_port,
+        server_name: format!("Local Service ({})", local_ip),
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64,
+    };
+    
+    let discovery_json = match serde_json::to_string(&discovery_request) {
+        Ok(json) => json,
+        Err(e) => return Err(format!("Failed to serialize discovery request: {}", e)),
+    };
+    
+    // 发送广播消息
+    if let Err(e) = socket.send_to(discovery_json.as_bytes(), &broadcast_addr).await {
+        return Err(format!("Failed to send discovery request: {}", e));
+    }
+    
+    // 监听回复 (最多等待 3 秒)
+    let timeout = tokio::time::timeout(Duration::from_secs(3), async {
+        let mut buf = [0u8; 1024];
+        
+        loop {
+            match socket.recv_from(&mut buf).await {
+                Ok((size, addr)) => {
+                    if let Ok(json_str) = std::str::from_utf8(&buf[..size]) {
+                        if let Ok(message) = serde_json::from_str::<BroadcastMessage>(json_str) {
+                            if message.message_type == SERVICE_DISCOVERY_MSG {
+                                // 不添加来自自己的响应
+                                if message.server_address != local_ip.to_string() || 
+                                   message.server_port != local_port {
+                                    if tx.send(message).await.is_err() {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                Err(_) => break,
+            }
+        }
+    }).await;
+    
+    // 收集发现的服务
+    if timeout.is_ok() {
+        while let Ok(service) = rx.try_recv() {
+            // 检查是否已经发现相同的服务
+            if !discovered_services.iter().any(|s: &BroadcastMessage| {
+                s.server_address == service.server_address && s.server_port == service.server_port
+            }) {
+                discovered_services.push(service);
+            }
+        }
+    }
+    
+    Ok(discovered_services)
 }
 
 // Tauri命令：获取问候消息
@@ -254,7 +551,7 @@ pub fn run() {
     // 初始化应用状态
     let state = Arc::new(AppState {
         connected_clients: Mutex::new(HashMap::new()),
-        shared_dir: TokioMutex::new(PathBuf::from(".")), // 使用 TokioMutex
+        shared_items: TokioMutex::new(Vec::new()),
     });
 
     // 启动WebSocket服务器
@@ -262,15 +559,23 @@ pub fn run() {
         match start_websocket_server(state.clone(), 8080).await {
             Ok(addr) => addr,
             Err(e) => {
-                eprintln!("启动WebSocket服务器失败: {}", e);
-                "未知".to_string()
+                eprintln!("Failed to start WebSocket server: {}", e);
+                "unknown".to_string()
             }
+        }
+    });
+
+    // 启动服务发现监听器
+    rt.block_on(async {
+        match start_discovery_service().await {
+            Ok(_) => println!("Service discovery listener started"),
+            Err(e) => eprintln!("Failed to start service discovery: {}", e),
         }
     });
 
     tauri::Builder::default()
         // 修复 single-instance 插件初始化，添加回调函数
-        .plugin(tauri_plugin_single_instance::init(|app_handle: &AppHandle, argv: Vec<String>, cwd: String| {
+        .plugin(tauri_plugin_single_instance::init(|_app_handle: &AppHandle, argv: Vec<String>, cwd: String| {
             println!("Another instance tried to launch with args: {:?}, cwd: {}", argv, cwd);
             // 移除不支持的方法调用
             println!("Focus the existing instance.");
@@ -283,8 +588,8 @@ pub fn run() {
         .manage(server_addr)
         .invoke_handler(tauri::generate_handler![
             greet,
-            set_shared_dir,
-            get_server_address
+            get_server_address,
+            discover_services
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
