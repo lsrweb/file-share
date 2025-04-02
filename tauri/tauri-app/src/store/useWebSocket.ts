@@ -1,4 +1,4 @@
-import { ref, inject, provide, InjectionKey, App } from 'vue';
+import { ref, inject, provide, InjectionKey, App, reactive } from 'vue';
 import { invoke } from "@tauri-apps/api/core";
 import type { ServerInfo, SharedItem } from '../types';
 
@@ -8,7 +8,7 @@ export const WS_STORE_KEY = Symbol('ws-store') as InjectionKey<ReturnType<typeof
 let globalStore: ReturnType<typeof createWebSocketStore> | null = null;
 
 export function createWebSocketStore() {
-  const sharedItems = ref<SharedItem[]>([]);
+  let sharedItems = reactive<SharedItem[]>([]);
   const selectedItem = ref<SharedItem | null>(null);
   const itemContent = ref("");
   const serverAddress = ref("");
@@ -104,7 +104,9 @@ export function createWebSocketStore() {
         // 处理共享列表更新
         if (data.type === 'sharedItems' || data.sharedItems) {
           console.log("Updating shared items:", data.sharedItems || data.data);
-          sharedItems.value = data.sharedItems || data.data || [];
+          sharedItems.splice(0, sharedItems.length, ...(data.sharedItems || data.data || []));
+          
+          
           loading.value = false;
         }
 
@@ -112,8 +114,12 @@ export function createWebSocketStore() {
         if (data.type === 'itemAdded' || data.itemAdded) {
           const newItem = data.itemAdded || data.data;
           console.log("Adding new shared item:", newItem);
-          if (!sharedItems.value.some(item => item.id === newItem.id)) {
-            sharedItems.value = [newItem, ...sharedItems.value];
+          if (!sharedItems.some(item => item.id === newItem.id)) {
+            // sharedItems = [newItem, ...sharedItems];
+            // 触发reactive更新
+            sharedItems = [...sharedItems, newItem];
+            
+            
           }
         }
 
@@ -121,7 +127,7 @@ export function createWebSocketStore() {
         if (data.type === 'itemRemoved' || data.itemRemoved) {
           const removedId = data.itemRemoved || data.data;
           console.log("Removing shared item:", removedId);
-          sharedItems.value = sharedItems.value.filter(item => item.id !== removedId);
+          sharedItems = sharedItems.filter(item => item.id !== removedId);
           
           // 如果当前选中的就是被删除的项，清除选中状态
           if (selectedItem.value && selectedItem.value.id === removedId) {

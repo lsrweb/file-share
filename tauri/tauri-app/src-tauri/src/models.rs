@@ -18,7 +18,7 @@ pub struct SharedItem {
     pub content: String,
     pub path: Option<String>,
     pub username: String,
-    pub upload_time: u64,
+    pub uploadTime: u64,
     pub size: Option<u64>,
     pub file_type: Option<String>,
 }

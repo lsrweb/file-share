@@ -11,6 +11,7 @@ import HeaderBar from './components/HeaderBar.vue';
 
 // 导入WebSocket状态管理
 import { useWebSocket } from './store/useWebSocket';
+import { ServerInfo } from "./types";
 
 // 使用WebSocket状态
 const wsStore = useWebSocket();
@@ -20,7 +21,7 @@ const handleDiscoverServices = () => {
   wsStore.discoverServices();
 };
 
-const handleSelectServer = (server) => {
+const handleSelectServer = (server: ServerInfo | undefined) => {
   wsStore.connectToServer(server);
 };
 
@@ -51,15 +52,15 @@ const handleShareText = (text: string) => {
 const handleViewItem = (item) => {
   wsStore.selectedItem.value = item;
 
-  if (item.content) {
-    wsStore.itemContent.value = item.content;
-  } else if (item.path) {
-    wsStore.loading.value = true;
-    wsStore.sendMessage({
-      action: "getItemContent",
-      id: item.id
-    });
-  }
+  // if (item.content) {
+  //   wsStore.itemContent.value = item.content;
+  // } else if (item.path) {
+  //   wsStore.loading.value = true;
+  //   wsStore.sendMessage({
+  //     action: "getItemContent",
+  //     id: item.id
+  //   });
+  // }
 };
 
 const handleDeleteItem = (item) => {

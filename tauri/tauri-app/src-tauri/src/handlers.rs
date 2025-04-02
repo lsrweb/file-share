@@ -74,7 +74,7 @@ pub async fn handle_share_file(
         content: String::new(),
         path: Some(path.to_string()),
         username: format!("User {}", addr),
-        upload_time: timestamp,
+        uploadTime: timestamp,
         size: Some(metadata.len()),
         file_type: get_file_type(path),
     };
@@ -131,7 +131,7 @@ pub async fn handle_share_text(
         content: content.to_string(),
         path: None,
         username: format!("User {}", addr),
-        upload_time: timestamp,
+        uploadTime: timestamp,
         size: None,
         file_type: None,
     };

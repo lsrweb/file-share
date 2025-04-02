@@ -17,6 +17,8 @@ const emit = defineEmits<{
 }>();
 
 const handleView = (item: SharedItem) => {
+  console.log(`Viewing item: ${item.name}`);
+  
   emit('view', item);
 };
 
@@ -79,7 +81,6 @@ const handleDelete = (item: SharedItem) => {
                 </button>
               </div>
             </div>
-
             <!-- 共享项内容预览（仅当该项被选中时显示） -->
             <div v-if="wsStore.selectedItem && wsStore.selectedItem.id === item.id"
               class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
@@ -110,6 +111,8 @@ const handleDelete = (item: SharedItem) => {
         <div v-else class="bg-blue-100 dark:bg-blue-900 border-l-4 border-blue-500 text-blue-700 dark:text-blue-300 p-4 rounded">
           <p>还没有共享的文件或文本，快来分享吧！</p>
         </div>
+{{ wsStore.selectedItem }}
+
       </div>
     </div>
   </div>
