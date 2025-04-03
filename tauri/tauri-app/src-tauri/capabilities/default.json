@@ -18,6 +18,9 @@
     "core:app:default",
     "core:window:allow-start-dragging",
     "websocket:allow-connect",
-    "websocket:allow-send"
+    "websocket:allow-send",
+    "websocket:deny-connect",
+    "websocket:deny-send"
+
   ]
 }
