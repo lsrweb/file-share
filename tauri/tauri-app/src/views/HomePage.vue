@@ -38,7 +38,6 @@ const handleSelectFile = async () => {
   try {
     const selectedPath = await openDialog();
     if (selectedPath) {
-      console.log(`Selected file to share: ${selectedPath}`);
       wsStore.loading.value = true;
       wsStore.sendMessage({
         action: "shareFile",
@@ -47,7 +46,6 @@ const handleSelectFile = async () => {
     }
   } catch (e) {
     wsStore.error.value = `Failed to select file: ${e}`;
-    console.error("Failed to select file:", e);
   }
 };
 

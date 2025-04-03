@@ -16,6 +16,8 @@
     "udp:default",
     "shell:allow-open",
     "core:app:default",
-    "core:window:allow-start-dragging"
+    "core:window:allow-start-dragging",
+    "websocket:allow-connect",
+    "websocket:allow-send"
   ]
 }

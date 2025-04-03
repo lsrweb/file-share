@@ -26,6 +26,9 @@ export function createWebSocketStore() {
   let ws: WebSocket | null = null;
   let reconnectTimeout: number | null = null;
 
+  // Ping状态标记
+  const pongReceived = ref(false);
+
   // 关闭WebSocket连接
   function closeWebSocketConnection() {
     if (ws) {
@@ -95,6 +98,9 @@ export function createWebSocketStore() {
       wsReady.value = true;
       error.value = "";
 
+      // 连接成功后，先发送ping确认服务器响应
+      sendPing();
+
       // 连接后立即请求共享列表
       console.log("Requesting initial shared items list");
       requestSharedItems();
@@ -104,6 +110,21 @@ export function createWebSocketStore() {
       try {
         const data = JSON.parse(event.data);
         console.log("WebSocket message received:", data);
+
+        // 处理pong响应
+        if (data.type === 'pong' || data.action === 'pong') {
+          console.log("Received pong from server");
+          pongReceived.value = true;
+          // 清除之前可能设置的错误信息
+          if (error.value === "服务器未响应ping请求") {
+            error.value = "";
+          }
+          // 恢复正常连接状态显示
+          if (connectionStatus.value === "服务器无响应") {
+            connectionStatus.value = "已连接";
+          }
+          return;
+        }
 
         // 处理推送的已发现服务列表
         if (data.type === 'discoveredServices') {
@@ -188,6 +209,23 @@ export function createWebSocketStore() {
     };
   }
 
+  // 发送ping检查服务器连接状态
+  function sendPing() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      console.log("Sending ping to server");
+      ws.send(JSON.stringify({ action: "ping", timestamp: Date.now() }));
+      
+      // 5秒后如果没收到pong响应，认为服务器无响应
+      setTimeout(() => {
+        if (wsReady.value && !pongReceived.value) {
+          console.warn("No pong received from server within timeout");
+          connectionStatus.value = "服务器无响应";
+          error.value = "服务器未响应ping请求";
+        }
+      }, 5000);
+    }
+  }
+
   // 处理重连逻辑
   function handleReconnect() {
     reconnectAttempts.value++;
@@ -252,9 +290,42 @@ export function createWebSocketStore() {
   function sendMessage(message: any) {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(message));
-    } else {
-      console.warn('WebSocket is not connected');
+      return true;
+    } else if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+      // 如果WebSocket不存在或已关闭，尝试重新连接
+      console.warn('WebSocket is not connected, attempting to reconnect...');
+      connectionStatus.value = "正在重新连接...";
+      connectToServer(selectedServer.value || undefined).then(() => {
+        // 连接成功后，使用setTimeout确保WebSocket开启后再发送消息
+        setTimeout(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(message));
+          } else {
+            error.value = "无法发送消息，连接失败";
+          }
+        }, 500);
+      });
+      return false;
+    } else if (ws.readyState === WebSocket.CONNECTING) {
+      // 如果WebSocket正在连接中，等待连接完成后再发送
+      console.warn('WebSocket is connecting, waiting to send message...');
+      const checkAndSend = () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(message));
+        } else if (ws && ws.readyState === WebSocket.CONNECTING) {
+          // 仍在连接中，继续等待
+          setTimeout(checkAndSend, 100);
+        } else {
+          error.value = "连接超时，无法发送消息";
+        }
+      };
+      
+      // 开始检查
+      setTimeout(checkAndSend, 100);
+      return false;
     }
+    
+    return false;
   }
 
   return {

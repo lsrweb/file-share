@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, computed, ref, onMounted } from 'vue';
+import { inject, computed, ref } from 'vue';
 
 const props = defineProps<{
   id: string;
@@ -7,11 +7,6 @@ const props = defineProps<{
 
 // Inject the active tab from parent component
 const activeTab = inject('activeTab', ref(''));
-
-// Debug: Log the active tab value to see what's happening
-onMounted(() => {
-  console.log(`Tab panel mounted: ${props.id}, active tab: ${activeTab.value}`);
-});
 
 // Check if this panel is active
 const isActive = computed(() => activeTab.value === props.id);

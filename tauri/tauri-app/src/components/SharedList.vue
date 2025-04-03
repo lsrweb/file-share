@@ -37,8 +37,6 @@ const emit = defineEmits<{
 }>();
 
 const handleView = (item: SharedItem) => {
-  console.log(`Viewing item id: ${item.id}, name: ${item.name}`);
-
   // 修改为打开预览页面
   if (item.id) {
     router.push({ name: 'Preview', params: { id: item.id } });

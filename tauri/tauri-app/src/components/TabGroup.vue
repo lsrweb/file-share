@@ -20,7 +20,6 @@ provide('activeTab', activeTab);
 
 // Change active tab
 const setActiveTab = (tabId: string) => {
-  console.log(`Setting active tab to: ${tabId}`);
   activeTab.value = tabId;
 };
 
@@ -47,7 +46,7 @@ const isActive = (tabId: string) => activeTab.value === tabId;
       </button>
     </div>
     
-    <!-- Tab content with debug info -->
+    <!-- Tab content -->
     <div class="mt-1 relative">
       <slot></slot>
     </div>
