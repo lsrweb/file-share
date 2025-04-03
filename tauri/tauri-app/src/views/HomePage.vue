@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, inject } from "vue";
+import { onMounted, onUnmounted, inject, ref } from "vue";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 // Import components
@@ -8,15 +8,22 @@ import FileUpload from '../components/FileUpload.vue';
 import TextShare from '../components/TextShare.vue';
 import SharedList from '../components/SharedList.vue';
 import HeaderBar from '../components/HeaderBar.vue';
+import TabGroup from '../components/TabGroup.vue';
+import TabPanel from '../components/TabPanel.vue';
 
 // Import WebSocket state management
 import { WS_STORE_KEY } from '../store/useWebSocket';
 import { ServerInfo, SharedItem } from "../types";
-
-
+import Drawer from "../components/Drawer.vue";
 
 // Use dependency injection to get WebSocket state
 const wsStore = inject(WS_STORE_KEY)!;
+
+// Define tabs for sharing options
+const sharingTabs = [
+  { id: 'file', title: '分享文件' },
+  { id: 'text', title: '分享文本' },
+];
 
 // Component event handlers
 const handleDiscoverServices = () => {
@@ -33,9 +40,9 @@ const handleSelectFile = async () => {
     if (selectedPath) {
       console.log(`Selected file to share: ${selectedPath}`);
       wsStore.loading.value = true;
-      wsStore.sendMessage({ 
-        action: "shareFile", 
-        path: selectedPath 
+      wsStore.sendMessage({
+        action: "shareFile",
+        path: selectedPath
       });
     }
   } catch (e) {
@@ -45,9 +52,9 @@ const handleSelectFile = async () => {
 };
 
 const handleShareText = (text: string) => {
-  wsStore.sendMessage({ 
-    action: "shareText", 
-    content: text 
+  wsStore.sendMessage({
+    action: "shareText",
+    content: text
   });
 };
 
@@ -76,6 +83,12 @@ onMounted(() => {
 onUnmounted(() => {
   wsStore.closeWebSocketConnection();
 });
+
+const showLeftDrawer = ref(false);
+const toggleLeftDrawer = () => {
+  showLeftDrawer.value = !showLeftDrawer.value;
+};
+
 </script>
 
 <template>
@@ -83,30 +96,32 @@ onUnmounted(() => {
     <div class="mx-auto py-1 px-4">
       <HeaderBar />
 
+      <Drawer v-model="showLeftDrawer" direction="left" title="Left Drawer" @close="showLeftDrawer = false" />
+
       <!-- Two-column layout -->
       <div class="flex flex-col md:flex-row gap-6">
         <!-- Left column - Operation area -->
         <div class="md:w-1/3 lg:w-1/4 space-y-4">
-          <ServerDiscovery 
-            @discover="handleDiscoverServices"
-            @select-server="handleSelectServer"
-          />
-          
-          <FileUpload 
-            @select-file="handleSelectFile"
-          />
-          
-          <TextShare 
-            @share-text="handleShareText"
-          />
+          <ServerDiscovery @discover="handleDiscoverServices" @select-server="handleSelectServer" />
+
+          <!-- Tabbed interface for sharing options -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+            <TabGroup :tabs="sharingTabs" defaultTab="text">
+              <!-- Text sharing tab -->
+              <TabPanel id="text">
+                <TextShare @share-text="handleShareText" />
+              </TabPanel>
+              <!-- File sharing tab -->
+              <TabPanel id="file">
+                <FileUpload @select-file="handleSelectFile" />
+              </TabPanel>
+            </TabGroup>
+          </div>
         </div>
 
         <!-- Right column - Shared list -->
         <div class="md:w-2/3 lg:w-3/4">
-          <SharedList 
-            @view="handleViewItem"
-            @delete="handleDeleteItem"
-          />
+          <SharedList @view="handleViewItem" @delete="handleDeleteItem" />
         </div>
       </div>
     </div>

@@ -10,11 +10,10 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <section class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
-    <h2 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">分享文件</h2>
+  <div class="p-4">
     <div class="max-w-md mx-auto rounded-lg overflow-hidden md:max-w-xl" @click="emit('select-file')">
       <div class="md:flex">
-        <div class="w-full p-3">
+        <div class="w-full">
           <div :class="{
               'relative h-48 rounded-lg border-2 bg-gray-50 flex justify-center items-center shadow-lg transition-shadow duration-300 ease-in-out': true,
               'border-blue-500 hover:shadow-xl cursor-pointer': wsStore.wsReady,
@@ -30,5 +29,5 @@ const emit = defineEmits<{
         </div>
       </div>
     </div>
-  </section>
+  </div>
 </template>
