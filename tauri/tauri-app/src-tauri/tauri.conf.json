@@ -16,11 +16,14 @@
         "width": 1200,
         "height": 600,
         "decorations": false,
-        "resizable": false
+        "transparent": true,
+        "resizable": false,
+        "center": true,
+        "visible": true
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'"
     }
   },
   "bundle": {

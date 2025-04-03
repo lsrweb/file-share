@@ -160,7 +160,7 @@ pub async fn handle_share_file(
         content: String::new(),
         path: Some(path.to_string()),
         username: format!("User {}", addr),
-        uploadTime: timestamp,
+        upload_time: timestamp,
         size: Some(metadata.len()),
         file_type: get_file_type(path),
         mime_type: get_mime_type(path),
@@ -226,7 +226,7 @@ pub async fn handle_share_text(
         content: content.to_string(),
         path: None,
         username: format!("User {}", addr),
-        uploadTime: timestamp,
+        upload_time: timestamp,
         size: None,
         file_type: Some("text".to_string()),
         mime_type: Some("text/plain".to_string()),
@@ -353,4 +353,18 @@ pub async fn broadcast_discovered_services(
             println!("已向客户端 {} 推送 {} 个发现的服务", addr, discovered_services.len());
         }
     }
+}
+
+// Handle UDP send operation through tauri-plugin-udp
+pub async fn udp_send(id: String, target: String, message: String) -> Result<(), String> {
+    // This function will be triggered from broadcast.rs and will call into JavaScript
+    // to use the tauri-plugin-udp binding
+    
+    println!("UDP send request: id={}, target={}, message={}", id, target, message);
+    
+    // In a real implementation, this would trigger a command that calls JavaScript
+    // to use the plugin's bind and send functions
+    
+    // For now, simply log the message and return success
+    Ok(())
 }

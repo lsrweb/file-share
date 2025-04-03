@@ -130,7 +130,7 @@ const getViewButtonText = (item: SharedItem) => {
                 <div class="text-gray-500 text-xs mt-1">
                   <span>分享者: {{ item.username }}</span>
                   <span class="mx-1">|</span>
-                  <span>时间: {{ new Date(item.uploadTime).toLocaleString() }}</span>
+                  <span>时间: {{ new Date(item.upload_time).toLocaleString() }}</span>
                   <span v-if="item.size" class="mx-1">|</span>
                   <span v-if="item.size">大小: {{ formatFileSize(item.size) }}</span>
                 </div>
@@ -162,84 +162,58 @@ const getViewButtonText = (item: SharedItem) => {
   </div>
 </template>
 
-<style scoped>
-/* Markdown样式 */
-.markdown-preview :deep(h1) {
-  font-size: 1.5rem;
-  font-weight: bold;
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
+<style lang="scss" scoped>
+.markdown-preview h1 {
+  @apply text-2xl font-bold mt-4 mb-2;
 }
 
-.markdown-preview :deep(h2) {
-  font-size: 1.3rem;
-  font-weight: bold;
-  margin-top: 0.8rem;
-  margin-bottom: 0.4rem;
+.markdown-preview h2 {
+  @apply text-xl font-bold mt-3 mb-2;
 }
 
-.markdown-preview :deep(h3) {
-  font-size: 1.1rem;
-  font-weight: bold;
-  margin-top: 0.6rem;
-  margin-bottom: 0.3rem;
+.markdown-preview h3 {
+  @apply text-lg font-bold mt-3 mb-1;
 }
 
-.markdown-preview :deep(p) {
-  margin-bottom: 0.5rem;
+.markdown-preview p {
+  @apply mb-2;
 }
 
-.markdown-preview :deep(pre) {
-  background-color: #f5f5f5;
-  padding: 0.5rem;
-  border-radius: 0.25rem;
-  overflow-x: auto;
-  margin: 0.5rem 0;
+.markdown-preview pre {
+  @apply bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto my-2;
 }
 
-.markdown-preview :deep(code) {
-  background-color: #f5f5f5;
-  padding: 0.1rem 0.3rem;
-  border-radius: 0.25rem;
-  font-family: monospace;
+.markdown-preview code {
+  @apply bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded font-mono;
 }
 
-.markdown-preview :deep(a) {
-  color: #3b82f6;
-  text-decoration: underline;
+.markdown-preview a {
+  @apply text-blue-500 underline;
 }
 
-.markdown-preview :deep(ul),
-.markdown-preview :deep(ol) {
-  padding-left: 1.5rem;
-  margin: 0.5rem 0;
+.markdown-preview ul, 
+.markdown-preview ol {
+  @apply pl-6 my-2;
 }
 
-.markdown-preview :deep(li) {
-  margin-bottom: 0.25rem;
+.markdown-preview li {
+  @apply mb-1;
 }
 
-.markdown-preview :deep(blockquote) {
-  border-left: 4px solid #e5e7eb;
-  padding-left: 1rem;
-  color: #6b7280;
-  margin: 0.5rem 0;
+.markdown-preview blockquote {
+  @apply border-l-4 border-gray-200 dark:border-gray-700 pl-4 text-gray-500 dark:text-gray-400 my-2;
 }
 
-.markdown-preview :deep(table) {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 0.5rem 0;
+.markdown-preview table {
+  @apply w-full border-collapse my-2;
 }
 
-.markdown-preview :deep(th),
-.markdown-preview :deep(td) {
-  border: 1px solid #e5e7eb;
-  padding: 0.5rem;
-  text-align: left;
+.markdown-preview th,
+.markdown-preview td {
+  @apply border border-gray-200 dark:border-gray-700 p-2 text-left;
 }
 
-.markdown-preview :deep(th) {
-  background-color: #f3f4f6;
+.markdown-preview th {
+  @apply bg-gray-100 dark:bg-gray-800;
 }
 </style>

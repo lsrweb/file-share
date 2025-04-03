@@ -43,3 +43,4 @@ target/**
 !**/src/test/**/target/**
 **/node_modules/**
 node_modules/**
+tauri/.github/copilot-instructions.md

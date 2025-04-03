@@ -1,18 +1,29 @@
 <script setup lang="ts">
-import { inject } from 'vue';
+import { inject, ref, onMounted, onUnmounted } from 'vue';
 import { WS_STORE_KEY } from '../store/useWebSocket';
 import type { ServerInfo } from '../types';
-import { onMounted, onUnmounted, ref } from 'vue';
+import { invoke } from '@tauri-apps/api/core';
 
 const wsStore = inject(WS_STORE_KEY)!;
 const autoDiscoveryInterval = ref<number | null>(null);
 const emptyDiscoveryCount = ref(0);
 const MAX_EMPTY_DISCOVERIES = 5;
+const localIp = ref('');
 
 const emit = defineEmits<{
   'discover': [];
   'select-server': [server: ServerInfo];
 }>();
+
+// Fetch the local IP address on component mount
+onMounted(async () => {
+  try {
+    localIp.value = await invoke<string>('get_local_ip');
+  } catch (error) {
+    console.error('Failed to fetch local IP:', error);
+    localIp.value = 'Error fetching IP';
+  }
+});
 
 // 自动发现服务
 async function startAutoDiscovery() {
@@ -71,6 +82,7 @@ onUnmounted(() => {
 <template>
   <section class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
     <h2 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">网络服务</h2>
+  
     <div class="mb-3">
       <button @click="handleManualDiscover"
         class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-sm w-full disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">

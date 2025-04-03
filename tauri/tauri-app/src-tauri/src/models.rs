@@ -10,6 +10,13 @@ pub struct BroadcastMessage {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct ServerInfo {
+    pub server_name: String,
+    pub server_address: String,
+    pub server_port: u16,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct SharedItem {
     pub id: String,
     pub name: String,
@@ -18,7 +25,7 @@ pub struct SharedItem {
     pub content: String,
     pub path: Option<String>,
     pub username: String,
-    pub uploadTime: u64,
+    pub upload_time: u64,
     pub size: Option<u64>,
     #[serde(rename = "fileType")]
     pub file_type: Option<String>,

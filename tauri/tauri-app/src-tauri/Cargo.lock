@@ -713,6 +713,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "575f75dfd25738df5b91b8e43e14d44bda14637a58fae779fd2b064f8bf3e010"
 
 [[package]]
+name = "debug_print"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f215f9b7224f49fb73256115331f677d868b34d18b65dbe4db392e6021eea90"
+
+[[package]]
 name = "deranged"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3791,6 +3797,7 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-shell",
  "tauri-plugin-single-instance",
+ "tauri-plugin-udp",
  "tauri-plugin-websocket",
  "tokio",
  "tokio-tungstenite 0.21.0",
@@ -3985,6 +3992,21 @@ dependencies = [
  "tracing",
  "windows-sys 0.59.0",
  "zbus",
+]
+
+[[package]]
+name = "tauri-plugin-udp"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce9d233f9de68f2f468f2095f508fdc70216fecccf082ffcada48a7b871046ca"
+dependencies = [
+ "debug_print",
+ "lazy_static",
+ "serde",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 1.0.69",
+ "tokio",
 ]
 
 [[package]]

@@ -16,7 +16,7 @@ export interface SharedItem {
   mimeType?: string;  // MIME 类型
   size?: number;
   username: string;
-  uploadTime: number;
+  upload_time: number;
   updateTime?: number;
   contentType?: string; // 内容类型: 'markdown', 'plain', 'html', 等
 }

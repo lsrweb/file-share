@@ -12,6 +12,10 @@
     "process:allow-exit",
     "process:allow-restart",
     "core:app:allow-app-hide",
-    "core:app:allow-app-show"
+    "core:app:allow-app-show",
+    "udp:default",
+    "shell:allow-open",
+    "core:app:default",
+    "core:window:allow-start-dragging"
   ]
 }

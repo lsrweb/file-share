@@ -80,7 +80,7 @@ onUnmounted(() => {
 
 <template>
   <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
-    <div class="mx-auto py-6 px-4">
+    <div class="mx-auto py-1 px-4">
       <HeaderBar />
 
       <!-- Two-column layout -->

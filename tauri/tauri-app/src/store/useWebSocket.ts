@@ -67,10 +67,13 @@ export function createWebSocketStore() {
       selectedServer.value = server;
       console.log("Connecting to specified server:", targetServer);
     } else {
-      // 获取本地服务器地址
+      // 使用本地默认地址
       try {
-        targetServer = await invoke("get_server_address");
-        console.log("Got local server address:", targetServer);
+        // Rather than using get_server_address which doesn't exist,
+        // use the local IP from get_local_ip with default port
+        const localIp = await invoke("get_local_ip");
+        targetServer = `${localIp}:8080`;
+        console.log("Using local server address:", targetServer);
       } catch (e) {
         error.value = `获取服务器地址失败: ${e}`;
         console.error("Failed to get server address:", e);
