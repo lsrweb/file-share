@@ -2,24 +2,13 @@
   "fileDb": "{}",
   "files": [
     {
-      "name": "laqun_json.doc",
-      "path": "C:\\Users\\Administrator\\Downloads\\laqun_json.doc",
-      "username": "192.168.31.12",
-      "type": "file",
-      "size": 10,
-      "uploadTime": 1743405939349,
-      "id": "febaae69",
-      "fileType": "other"
-    },
-    {
-      "name": "Jz1kY4yicZCK.jpg",
-      "path": "C:\\Users\\Administrator\\Downloads\\Jz1kY4yicZCK.jpg",
-      "username": "192.168.31.128",
-      "type": "file",
-      "size": 35138,
-      "uploadTime": 1743398574614,
-      "id": "81e11a52",
-      "fileType": "image"
+      "id": "83a4a3e5",
+      "name": "复制我去粘贴(GAIRMd)",
+      "type": "text",
+      "contentType": "text",
+      "content": "复制我去粘贴(GAIRMd)",
+      "username": "192.168.31.54",
+      "uploadTime": 1751255962184
     }
   ],
   "authEnable": false,
@@ -68,6 +57,32 @@
       "lastSeen": 1743404060236,
       "lastConnectTime": 1743404055104,
       "lastDisconnectTime": 1743404060236
+    },
+    "192.168.31.66": {
+      "ip": "192.168.31.66",
+      "name": "192.168.31.66",
+      "firstSeen": 1745803244403,
+      "isOnline": true,
+      "lastSeen": 1751255770138,
+      "lastConnectTime": 1751255770138,
+      "lastDisconnectTime": 1750665451137
+    },
+    "192.168.31.54": {
+      "ip": "192.168.31.54",
+      "name": "192.168.31.54",
+      "firstSeen": 1745803312535,
+      "isOnline": false,
+      "lastSeen": 1751256089945,
+      "lastConnectTime": 1751256056201,
+      "lastDisconnectTime": 1751256089945
+    },
+    "localhost": {
+      "ip": "localhost",
+      "name": "localhost",
+      "firstSeen": 1749018113101,
+      "isOnline": true,
+      "lastSeen": 1749018113101,
+      "lastConnectTime": 1749018113101
     }
   },
   "password": "password"

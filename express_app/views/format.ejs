@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>参数格式化工具</title>
+    
+    <!-- 基础样式库 -->
+    <link rel="stylesheet" href="/css/bootstrap5.min.css">
+    <link rel="stylesheet" href="/css/toast.css">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        .input-area, .output-area {
+            min-height: 300px;
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .json-key {
+            color: #0066cc;
+        }
+        .json-value-string {
+            color: #008800;
+        }
+        .json-value-number {
+            color: #880000;
+        }
+        .json-value-boolean {
+            color: #660066;
+        }
+        pre {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 0;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        .btn-copy {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- 导航栏 - 与首页共用风格 -->
+    <header class="flex justify-between items-center mb-6 pb-3 border-b border-gray-200 bg-white shadow px-4 py-3">
+        <div class="flex items-center">
+            <h1 class="text-2xl font-bold text-gray-800 mr-6">局域网文件共享</h1>
+            <nav class="hidden sm:flex">
+                <a href="/" class="mx-2 px-3 py-1 rounded hover:bg-gray-100 text-gray-700">首页</a>
+                <a href="/format" class="mx-2 px-3 py-1 rounded bg-blue-50 text-blue-700 font-medium">参数格式化</a>
+            </nav>
+        </div>
+        <div>
+            <a href="/" class="hidden sm:inline-block px-4 py-1 border border-gray-300 rounded text-gray-600 hover:bg-gray-50 transition text-sm">
+                返回首页
+            </a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">参数格式化工具</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">请输入要格式化的参数文本，格式如 <code>msg[0][sort]</code> 下一行 <code>0</code>。系统将自动将其转换为数组格式。</p>
+                                  <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="inputText" class="form-label">输入参数文本</label>
+                            <textarea id="inputText" class="form-control input-area" placeholder="在此粘贴需要格式化的参数文本..."></textarea>
+                        </div>
+                        <div class="form-group mb-3">
+                            <button id="formatBtn" class="btn btn-primary me-2">格式化</button>
+                            <button id="clearBtn" class="btn btn-secondary">清空</button>
+                        </div>
+                        <div id="emptyFields" class="alert alert-warning mt-3 d-none">
+                            <strong>检测到空值字段：</strong>
+                            <ul class="mb-0 mt-2" id="emptyFieldsList"></ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group mb-3 position-relative">
+                            <label for="outputJson" class="form-label">格式化结果 (JSON)</label>
+                            <button id="copyBtn" class="btn btn-sm btn-outline-secondary btn-copy">复制</button>
+                            <pre id="outputJson" class="output-area">// 格式化后的结果将显示在这里</pre>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">使用说明</h5>
+                    </div>                    <div class="card-body">
+                        <h6>输入格式示例:</h6>
+                        <pre>msg[0][sort]
+0
+msg[0][msg_type_reply]
+txt
+msg[0][yanshi]
+3
+msg[0][title]
+msg[0][url]
+msg[0][desc]</pre>
+
+                        <h6>输出格式示例:</h6>
+                        <pre>[
+  {
+    "sort": 0,
+    "msg_type_reply": "txt",
+    "yanshi": 3,
+    "title": "",
+    "url": "",
+    "desc": ""
+  }
+]</pre>
+
+                        <div class="alert alert-info mt-3">
+                            <strong>提示：</strong> 当参数名后面没有值时（如上面的 msg[0][title]），会被识别为空字符串。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="/js/bootstrap.bundle.min.js"></script>
+    <!-- Toast 消息提示 -->
+    <script src="/js/toast.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputText = document.getElementById('inputText');
+            const outputJson = document.getElementById('outputJson');
+            const formatBtn = document.getElementById('formatBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const copyBtn = document.getElementById('copyBtn');
+              // 格式化函数
+            function formatParams(text) {
+                if (!text.trim()) {
+                    return '// 请输入要格式化的参数文本';
+                }
+                
+                try {
+                    const lines = text.split('\n');
+                    const result = {};
+                    
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        
+                        // 跳过空行
+                        if (!line) continue;
+                        
+                        // 解析参数名 msg[0][sort] -> {msg: [{sort: value}]}
+                        const matches = line.match(/([^\[]+)\[(\d+)\]\[([^\]]+)\]/);
+                        if (matches) {
+                            const [, prefix, index, key] = matches;
+                            
+                            // 确保对象层次结构存在
+                            if (!result[prefix]) {
+                                result[prefix] = [];
+                            }
+                            
+                            // 确保数组索引存在
+                            const idx = parseInt(index, 10);
+                            if (!result[prefix][idx]) {
+                                result[prefix][idx] = {};
+                            }
+                            
+                            // 检查下一行是否存在且不是另一个参数定义
+                            let value = '';
+                            const nextLine = lines[i + 1];
+                            
+                            if (nextLine && !nextLine.match(/([^\[]+)\[(\d+)\]\[([^\]]+)\]/)) {
+                                // 如果下一行不是参数格式，则获取它作为当前参数的值并跳过这一行
+                                value = nextLine.trim();
+                                i++; // 跳过下一行，因为已经处理了
+                            }
+                            
+                            // 设置值，尝试转换数字和布尔值
+                            if (value === 'true') value = true;
+                            else if (value === 'false') value = false;
+                            else if (!isNaN(value) && value !== '') value = Number(value);
+                            
+                            result[prefix][idx][key] = value;
+                        }
+                    }
+                    
+                    // 提取所有数组，通常只会有一个 msg 数组
+                    const arrays = {};
+                    for (const key in result) {
+                        // 移除可能的空洞(稀疏数组)
+                        arrays[key] = result[key].filter(item => item !== undefined && item !== null);
+                    }
+                    
+                    // 如果只有一个数组，直接返回该数组
+                    const keys = Object.keys(arrays);
+                    if (keys.length === 1) {
+                        return JSON.stringify(arrays[keys[0]], null, 2);
+                    }
+                    
+                    // 否则返回所有数组
+                    return JSON.stringify(arrays, null, 2);
+                    
+                } catch (error) {
+                    console.error('格式化错误:', error);
+                    return '// 格式化出错: ' + error.message;
+                }
+            }
+              // 格式化按钮点击事件
+            formatBtn.addEventListener('click', function() {
+                const text = inputText.value;
+                const formattedJson = formatParams(text);
+                
+                // 显示格式化的JSON并添加语法高亮
+                outputJson.innerHTML = syntaxHighlight(formattedJson);
+                
+                // 检测并显示空值字段
+                checkEmptyFields(text);
+            });
+            
+            // 清空按钮点击事件
+            clearBtn.addEventListener('click', function() {
+                inputText.value = '';
+                outputJson.textContent = '// 格式化后的结果将显示在这里';
+            });
+            
+            // 复制按钮点击事件
+            copyBtn.addEventListener('click', function() {
+                const text = outputJson.textContent;
+                
+                navigator.clipboard.writeText(text).then(function() {
+                    toast.success('已复制到剪贴板');
+                }).catch(function(err) {
+                    toast.error('复制失败: ' + err);
+                    console.error('复制失败:', err);
+                });
+            });
+            
+            // JSON语法高亮函数
+            function syntaxHighlight(json) {
+                if (typeof json !== 'string') {
+                    json = JSON.stringify(json, null, 2);
+                }
+                
+                // 替换引号、冒号等为HTML实体
+                json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                
+                // 用正则表达式添加语法高亮
+                return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function(match) {
+                    let cls = 'json-value-number';
+                    
+                    if (/^"/.test(match)) {
+                        if (/:$/.test(match)) {
+                            cls = 'json-key';
+                            match = match.replace(/"/g, '').replace(/:$/, ':');
+                        } else {
+                            cls = 'json-value-string';
+                        }
+                    } else if (/true|false/.test(match)) {
+                        cls = 'json-value-boolean';
+                    } else if (/null/.test(match)) {
+                        cls = 'json-value-null';
+                    }
+                    
+                    return '<span class="' + cls + '">' + match + '</span>';
+                });
+            }
+        });
+    </script>
+</body>
+</html>

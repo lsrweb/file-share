@@ -820,3 +820,10 @@ app.get('/preview/:id', (req, res) => {
         res.status(500).send('服务器错误');
     }
 });
+
+// 参数格式化页面路由
+app.get('/format', (req, res) => {
+    res.render('format', {
+        title: '参数格式化工具'
+    });
+});
